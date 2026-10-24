@@ -9,6 +9,9 @@ OFFERED_TARGETS: frozenset[Target] = frozenset(Target)
 
 UPSC_OFFICIAL_HOST = "upsc.gov.in"
 INSTITUTE_DOMAIN = "institute.example"
+INSTITUTE_NAME = "Example Coaching Institute"
+PROMPT_VERSION = "upsc_v0.2"
+DOCUMENTED_PROMPT_PLACEHOLDERS: frozenset[str] = frozenset({"institute_name"})
 
 FALLBACK_TEXTS: Mapping[str, str] = MappingProxyType(
     {

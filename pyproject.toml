@@ -14,6 +14,7 @@ dependencies = [
     "alembic>=1.14.0",
     "cryptography>=44.0.0",
     "structlog>=24.4.0",
+    "httpx>=0.27.0",
 ]
 
 [dependency-groups]
@@ -41,6 +42,7 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
     "integration: tests that require PostgreSQL 16",
+    "live_llm: tests that call a real local Ollama server",
 ]
 
 [tool.ruff]

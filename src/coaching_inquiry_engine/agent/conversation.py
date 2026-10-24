@@ -156,7 +156,10 @@ def handle_event(
     offered_targets: frozenset[Target],
     now: datetime,
 ) -> tuple[ConversationContext, list[ConversationAction]]:
-    """Advance conversation state. `now` is supplied by the caller; never read the clock."""
+    """Advance conversation state.
+
+    `now` is supplied by the caller; never read the clock.
+    """
     _ = now
     if ctx.state in _TERMINAL_STATES:
         return ctx, []
@@ -239,7 +242,9 @@ def _handle_off_topic(
     updated = ctx.model_copy(update={"off_topic_count": count})
     actions: list[ConversationAction] = [SendText(text_key="off_topic_redirect")]
     if count >= OFF_TOPIC_LIMIT:
-        return _escalate(updated, reason="off_topic_limit", status=status, extra=actions)
+        return _escalate(
+            updated, reason="off_topic_limit", status=status, extra=actions
+        )
     return updated, actions
 
 

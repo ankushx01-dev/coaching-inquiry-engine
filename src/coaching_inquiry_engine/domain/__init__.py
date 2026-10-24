@@ -1,10 +1,24 @@
 """Domain logic — pure Python, no framework imports."""
 
 from coaching_inquiry_engine.domain.config import (
+    DOCUMENTED_PROMPT_PLACEHOLDERS,
     FALLBACK_TEXTS,
     INSTITUTE_DOMAIN,
+    INSTITUTE_NAME,
     OFFERED_TARGETS,
+    PROMPT_VERSION,
     UPSC_OFFICIAL_HOST,
+)
+from coaching_inquiry_engine.domain.decisions import (
+    AgentDecision,
+    EscalationReason,
+    FieldUpdates,
+    NextAction,
+    SlotOption,
+)
+from coaching_inquiry_engine.domain.llm_checks import (
+    DecisionRejectedError,
+    check_decision,
 )
 from coaching_inquiry_engine.domain.models import (
     BookingStatus,
@@ -32,10 +46,19 @@ from coaching_inquiry_engine.domain.sources import (
 )
 
 __all__ = [
+    "DOCUMENTED_PROMPT_PLACEHOLDERS",
     "FALLBACK_TEXTS",
     "INSTITUTE_DOMAIN",
+    "INSTITUTE_NAME",
     "OFFERED_TARGETS",
+    "PROMPT_VERSION",
     "UPSC_OFFICIAL_HOST",
+    "AgentDecision",
+    "DecisionRejectedError",
+    "EscalationReason",
+    "FieldUpdates",
+    "NextAction",
+    "SlotOption",
     "BookingStatus",
     "Contact",
     "ContactChannel",
@@ -53,6 +76,7 @@ __all__ = [
     "Stale",
     "Target",
     "Timeline",
+    "check_decision",
     "get_source",
     "load_sources",
     "qualify",

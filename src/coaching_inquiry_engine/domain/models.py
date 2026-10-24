@@ -73,6 +73,18 @@ class _StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def normalize_person_name(value: str) -> str:
+    """Trim and validate a person name. Shared by Contact and FieldUpdates."""
+    stripped = value.strip()
+    if not 1 <= len(stripped) <= 60:
+        raise ValueError("name must be between 1 and 60 characters")
+    if not all(_is_allowed_name_char(char) for char in stripped):
+        raise ValueError(
+            "name may contain letters, spaces, dots, apostrophes, and hyphens only"
+        )
+    return stripped
+
+
 class Contact(_StrictModel):
     name: str
     channel: ContactChannel
@@ -88,13 +100,7 @@ class Contact(_StrictModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: str) -> str:
-        if not 1 <= len(value) <= 60:
-            raise ValueError("name must be between 1 and 60 characters")
-        if not all(_is_allowed_name_char(char) for char in value):
-            raise ValueError(
-                "name may contain letters, spaces, dots, apostrophes, and hyphens only"
-            )
-        return value
+        return normalize_person_name(value)
 
     @model_validator(mode="after")
     def validate_channel_value(self) -> Self:

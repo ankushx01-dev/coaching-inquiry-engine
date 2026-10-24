@@ -18,11 +18,13 @@ def require_crypto_settings(settings: Settings) -> None:
     """Refuse to start if contact encryption cannot be performed."""
     if not settings.cie_encryption_key:
         raise MissingEncryptionKeyError(
-            "CIE_ENCRYPTION_KEY is required; refusing to start without contact encryption."
+            "CIE_ENCRYPTION_KEY is required; refusing to start without "
+            "contact encryption."
         )
     if not settings.cie_contact_hash_key:
         raise MissingEncryptionKeyError(
-            "CIE_CONTACT_HASH_KEY is required; refusing to start without a contact hash key."
+            "CIE_CONTACT_HASH_KEY is required; refusing to start without a "
+            "contact hash key."
         )
 
 
@@ -40,7 +42,8 @@ class ContactCipher:
         hash_key = settings.cie_contact_hash_key
         if encryption_key is None or hash_key is None:
             raise MissingEncryptionKeyError(
-                "CIE_ENCRYPTION_KEY is required; refusing to start without contact encryption."
+                "CIE_ENCRYPTION_KEY is required; refusing to start without "
+                "contact encryption."
             )
         return cls(encryption_key=encryption_key, hash_key=hash_key)
 

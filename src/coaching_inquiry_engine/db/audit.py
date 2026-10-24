@@ -14,7 +14,8 @@ class ForbiddenAuditKeyError(ValueError):
         self.key = key
         super().__init__(
             f"Audit event detail must not include the key '{key}'. "
-            "Phone numbers, emails, contact values, and names are not stored in audit events."
+            "Phone numbers, emails, contact values, and names are not stored "
+            "in audit events."
         )
 
 

@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     cie_encryption_key: str | None = None
     cie_contact_hash_key: str | None = None
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.2:latest"
+    llm_timeout_seconds: float = 20
+    llm_max_attempts: int = 3
 
 
 @lru_cache

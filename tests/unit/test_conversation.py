@@ -162,7 +162,9 @@ def test_all_four_fields_in_one_message_offer_slots_without_asking() -> None:
         for length in range(len(_ALL_FIELDS) + 1)
         for combo in combinations(_ALL_FIELDS, length)
     ],
-    ids=lambda present: "+".join(field.value for field in _ALL_FIELDS if field in present)
+    ids=lambda present: "+".join(
+        field.value for field in _ALL_FIELDS if field in present
+    )
     or "none",
 )
 def test_never_asks_for_a_field_already_present(present: frozenset[Field]) -> None:
