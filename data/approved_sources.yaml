@@ -1,0 +1,67 @@
+# Approved-source registry. answer_summary and last_verified stay null until
+# each entry is verified against the official site. Do not treat this file as
+# a source of UPSC facts.
+sources:
+  - id: eligibility
+    topic: eligibility
+    official_url: https://upsc.gov.in/
+    answer_summary: null
+    last_verified: null
+    owner: upsc
+    status: TO_VERIFY
+  - id: age_limit
+    topic: age_limit
+    official_url: https://upsc.gov.in/
+    answer_summary: null
+    last_verified: null
+    owner: upsc
+    status: TO_VERIFY
+  - id: attempts
+    topic: attempts
+    official_url: https://upsc.gov.in/
+    answer_summary: null
+    last_verified: null
+    owner: upsc
+    status: TO_VERIFY
+  - id: exam_pattern
+    topic: exam_pattern
+    official_url: https://upsc.gov.in/
+    answer_summary: null
+    last_verified: null
+    owner: upsc
+    status: TO_VERIFY
+  - id: syllabus
+    topic: syllabus
+    official_url: https://upsc.gov.in/
+    answer_summary: null
+    last_verified: null
+    owner: upsc
+    status: TO_VERIFY
+  - id: important_dates
+    topic: important_dates
+    official_url: https://upsc.gov.in/
+    answer_summary: null
+    last_verified: null
+    owner: upsc
+    status: TO_VERIFY
+  - id: fees
+    topic: fees
+    official_url: https://upsc.gov.in/
+    answer_summary: null
+    last_verified: null
+    owner: upsc
+    status: TO_VERIFY
+  - id: institute_batches
+    topic: institute_batches
+    official_url: https://institute.example/batches
+    answer_summary: null
+    last_verified: null
+    owner: institute
+    status: TO_VERIFY
+  - id: institute_fees
+    topic: institute_fees
+    official_url: https://institute.example/fees
+    answer_summary: null
+    last_verified: null
+    owner: institute
+    status: TO_VERIFY

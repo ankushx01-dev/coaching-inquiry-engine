@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     app_env: str = "development"
     database_url: str = "postgresql+asyncpg://localhost:5432/coaching_inquiry"
     log_level: str = "INFO"
+    cie_encryption_key: str | None = None
+    cie_contact_hash_key: str | None = None
 
 
 @lru_cache
