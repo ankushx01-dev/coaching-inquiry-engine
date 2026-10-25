@@ -125,6 +125,9 @@ class QualifyFlags(_StrictModel):
     fee_dispute: bool = False
     complaint: bool = False
     scam_signal: bool = False
+    self_harm: bool = False
+    human_request: bool = False
+    injection_attempt: bool = False
 
 
 class Lead(_StrictModel):

@@ -17,9 +17,14 @@ def qualify(
     """Return the first matching status, highest priority first."""
     if flags.is_minor:
         return LeadStatus.minor_linked
-    if flags.distress_detected:
+    if flags.distress_detected or flags.self_harm:
         return LeadStatus.escalated
-    if flags.scam_signal or flags.complaint or flags.fee_dispute:
+    if (
+        flags.scam_signal
+        or flags.complaint
+        or flags.fee_dispute
+        or flags.human_request
+    ):
         return LeadStatus.escalated
     if profile.target is not None and profile.target not in offered_targets:
         return LeadStatus.out_of_scope

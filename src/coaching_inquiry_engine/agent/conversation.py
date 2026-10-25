@@ -53,6 +53,7 @@ class ConversationContext(_StrictModel):
     state: ConversationState = ConversationState.NEW
     profile: LeadProfile = LeadProfile()
     flags: QualifyFlags = QualifyFlags()
+    injection_count: int = 0
     off_topic_count: int = 0
     repeated_question_count: int = 0
     last_asked_field: Field | None = None
@@ -202,10 +203,12 @@ def _handle_inbound(
 ) -> tuple[ConversationContext, list[ConversationAction]]:
     profile = _merge_profile(ctx.profile, event.extracted_fields)
     flags = _merge_flags(ctx.flags, event.detected_flags)
+    injection_count = ctx.injection_count + int(event.detected_flags.injection_attempt)
     ctx = ctx.model_copy(
         update={
             "profile": profile,
             "flags": flags,
+            "injection_count": injection_count,
             "message_count": ctx.message_count + 1,
         }
     )
@@ -213,11 +216,19 @@ def _handle_inbound(
     if status in _ESCALATION_STATUSES:
         return _escalate(ctx, reason=status.value, status=status)
 
+    if event.detected_flags.injection_attempt and ctx.injection_count >= 2:
+        return _escalate(ctx, reason="injection_repeat", status=status)
+
+    first_injection = (
+        event.detected_flags.injection_attempt and ctx.injection_count == 1
+    )
+
     if event.is_off_topic:
-        return _handle_off_topic(ctx, status)
+        updated, actions = _handle_off_topic(ctx, status)
+        return _prepend_injection_decline(updated, actions, first_injection)
 
     if ctx.state is ConversationState.OFFERING_SLOTS:
-        return ctx, []
+        return _prepend_injection_decline(ctx, [], first_injection)
 
     if status is LeadStatus.qualified and next_missing_field(profile) is None:
         offered = ctx.model_copy(
@@ -227,19 +238,34 @@ def _handle_inbound(
                 "repeated_question_count": 0,
             }
         )
-        return offered, [OfferSlots()]
+        return _prepend_injection_decline(offered, [OfferSlots()], first_injection)
 
     missing = next_missing_field(profile)
     if missing is None:
         updated = ctx.model_copy(update={"state": ConversationState.QUALIFYING})
         if status is LeadStatus.nurture:
-            return updated, [SendText(text_key="nurture")]
+            return _prepend_injection_decline(
+                updated, [SendText(text_key="nurture")], first_injection
+            )
         if status is LeadStatus.out_of_scope:
-            return updated, [SendText(text_key="out_of_scope")]
+            return _prepend_injection_decline(
+                updated, [SendText(text_key="out_of_scope")], first_injection
+            )
         raise AssertionError(
             f"Unexpected lead status without a missing field: {status}"
         )
-    return _ask_missing_field(ctx, missing, offered_targets)
+    updated, actions = _ask_missing_field(ctx, missing, offered_targets)
+    return _prepend_injection_decline(updated, actions, first_injection)
+
+
+def _prepend_injection_decline(
+    ctx: ConversationContext,
+    actions: list[ConversationAction],
+    should_decline: bool,
+) -> tuple[ConversationContext, list[ConversationAction]]:
+    if should_decline:
+        return ctx, [SendText(text_key="injection_decline"), *actions]
+    return ctx, actions
 
 
 def _handle_off_topic(
@@ -316,4 +342,7 @@ def _merge_flags(base: QualifyFlags, detected: QualifyFlags) -> QualifyFlags:
         fee_dispute=base.fee_dispute or detected.fee_dispute,
         complaint=base.complaint or detected.complaint,
         scam_signal=base.scam_signal or detected.scam_signal,
+        self_harm=base.self_harm or detected.self_harm,
+        human_request=base.human_request or detected.human_request,
+        injection_attempt=base.injection_attempt or detected.injection_attempt,
     )
