@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
+from coaching_inquiry_engine.domain.quick_replies import QuickReply
 from coaching_inquiry_engine.ports.chat_store import ChatStorePort, StoredChatMessage
 from coaching_inquiry_engine.ports.rate_limiter import RateLimiterPort
 
@@ -24,9 +25,11 @@ class ChatMessageService:
         self,
         store: ChatStorePort,
         rate_limiter: RateLimiterPort,
+        quick_replies: tuple[QuickReply, ...] = (),
     ) -> None:
         self._store = store
         self._rate_limiter = rate_limiter
+        self.quick_replies = quick_replies
 
     async def submit(
         self,

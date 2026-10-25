@@ -1,0 +1,9 @@
+quick_replies:
+  - label: Batch timings
+    send_text: What are the batch timings?
+  - label: Fees
+    send_text: What are the course fees?
+  - label: UPSC basics
+    send_text: Tell me about UPSC preparation basics.
+  - label: Talk to a counsellor
+    send_text: I would like to talk to a counsellor.

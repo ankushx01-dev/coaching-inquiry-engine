@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     crm_provider: Literal["fake", "hubspot"] = "fake"
     outbox_batch_size: int = 20
     outbox_base_backoff_seconds: float = 1.0
+    knowledge_max_age_days: int = 30
 
 
 @lru_cache

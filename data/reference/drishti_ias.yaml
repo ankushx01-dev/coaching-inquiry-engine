@@ -1,0 +1,12 @@
+institute_name: Drishti IAS (reference only)
+owner: Benchmark maintainers
+last_reviewed: 2026-10-25
+status: TO_VERIFY
+usage: benchmark_only
+entries:
+  - id: benchmark_batches
+    topic: batches
+    text: To be filled from the public website.
+    source_note: Benchmark only; not client data.
+    last_verified: null
+    status: TO_VERIFY

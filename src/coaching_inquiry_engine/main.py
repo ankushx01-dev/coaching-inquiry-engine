@@ -18,6 +18,7 @@ from coaching_inquiry_engine.db.encryption import (
     require_crypto_settings,
 )
 from coaching_inquiry_engine.db.session import create_engine, create_session_factory
+from coaching_inquiry_engine.domain.quick_replies import load_quick_replies
 from coaching_inquiry_engine.logging import configure_logging
 from coaching_inquiry_engine.services.chat_service import ChatMessageService
 from coaching_inquiry_engine.services.chat_store import PostgresChatStore
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
             per_session_per_minute=settings.rate_limit_per_session_per_min,
             per_ip_per_minute=settings.rate_limit_per_ip_per_min,
         ),
+        tuple(load_quick_replies("data/quick_replies.yaml")),
     )
     application.add_middleware(
         CORSMiddleware,

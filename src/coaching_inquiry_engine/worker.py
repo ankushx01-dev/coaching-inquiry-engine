@@ -5,14 +5,17 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from uuid import UUID
 
+import yaml
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from coaching_inquiry_engine.adapters.calendar_fake import FakeCalendar
 from coaching_inquiry_engine.adapters.clock import SystemClock
 from coaching_inquiry_engine.adapters.llm_ollama import OllamaLlmAdapter
 from coaching_inquiry_engine.adapters.messenger_fake import FakeMessenger
+from coaching_inquiry_engine.agent.answering import answer_message
 from coaching_inquiry_engine.agent.conversation import (
     AskField,
     CloseConversation,
@@ -48,6 +51,7 @@ from coaching_inquiry_engine.domain.decisions import (
     NextAction,
     SlotOption,
 )
+from coaching_inquiry_engine.domain.knowledge import KnowledgeEntry, load_knowledge
 from coaching_inquiry_engine.domain.models import (
     Contact,
     ContactChannel,
@@ -64,6 +68,7 @@ from coaching_inquiry_engine.domain.safety import (
     plan_response,
 )
 from coaching_inquiry_engine.domain.slots import format_slot_label
+from coaching_inquiry_engine.domain.sources import SourceEntry, load_sources
 from coaching_inquiry_engine.logging import mask_contact_text
 from coaching_inquiry_engine.ports.calendar import CalendarPort
 from coaching_inquiry_engine.ports.clock import ClockPort
@@ -103,6 +108,11 @@ class Worker:
         llm_max_attempts: int = 3,
         job_max_attempts: int = 5,
         clock: ClockPort | None = None,
+        knowledge: tuple[KnowledgeEntry, ...] = (),
+        topic_keywords: dict[str, list[str]] | None = None,
+        knowledge_max_age_days: int = 30,
+        answering_enabled: bool = False,
+        source_registry: dict[str, SourceEntry] | None = None,
     ) -> None:
         self._sessions = sessions
         self._cipher = cipher
@@ -114,6 +124,11 @@ class Worker:
         self._llm_max_attempts = llm_max_attempts
         self._job_max_attempts = job_max_attempts
         self._clock = clock or SystemClock()
+        self._knowledge = knowledge
+        self._topic_keywords = topic_keywords or {}
+        self._knowledge_max_age_days = knowledge_max_age_days
+        self._answering_enabled = answering_enabled
+        self._source_registry = source_registry or {}
 
     async def process_turn(
         self,
@@ -144,15 +159,34 @@ class Worker:
             allowed_next_actions=list(NextAction),
             slot_options=slot_options,
         )
-        try:
-            decision = await decide_safely(
-                self._llm,
-                decision_context,
-                max_attempts=self._llm_max_attempts,
-            )
-        except LLMUnavailable:
-            decision = None
-            llm_unavailable = True
+        answering_result = None
+        if self._answering_enabled:
+            try:
+                answering_result = await answer_message(
+                    inbound_text,
+                    llm=self._llm,
+                    context=decision_context,
+                    knowledge=self._knowledge,
+                    topic_keywords=self._topic_keywords,
+                    source_registry=self._source_registry,
+                    max_age_days=self._knowledge_max_age_days,
+                    today=now.date(),
+                    max_attempts=self._llm_max_attempts,
+                )
+                decision = answering_result.decision
+            except LLMUnavailable:
+                decision = None
+                llm_unavailable = True
+        else:
+            try:
+                decision = await decide_safely(
+                    self._llm,
+                    decision_context,
+                    max_attempts=self._llm_max_attempts,
+                )
+            except LLMUnavailable:
+                decision = None
+                llm_unavailable = True
 
         extracted = _decision_profile_updates(context.profile, decision)
         merged_profile = _merge_profile(context.profile, extracted)
@@ -203,6 +237,8 @@ class Worker:
         if any(detected_flags.model_dump().values()):
             plan = plan_response(detected_flags)
             text_keys = [plan.text_key] if plan.text_key is not None else []
+        elif answering_result is not None and answering_result.text_key is not None:
+            text_keys = [answering_result.text_key]
         elif llm_unavailable:
             text_keys = ["llm_fallback"]
         elif booking_result_key is not None:
@@ -227,6 +263,13 @@ class Worker:
                 text = resolve_text(action.text_key, **placeholders)
                 await self._messenger.send_text(recipient, text)
                 stored_texts.append(mask_contact_text(text))
+            if (
+                answering_result is not None
+                and decision is not None
+                and decision.next_action is NextAction.answer_question
+            ):
+                await self._messenger.send_text(recipient, decision.reply_text)
+                stored_texts.append(mask_contact_text(decision.reply_text))
 
         return TurnResult(
             context=new_context,
@@ -463,6 +506,15 @@ async def run_worker() -> None:
     engine = create_engine(settings.database_url)
     sessions = create_session_factory(engine)
     cipher = ContactCipher.from_settings(settings)
+    knowledge = tuple(
+        entry
+        for path in ("data/institute.yaml", "data/upsc_reference.yaml")
+        for entry in load_knowledge(path).entries
+    )
+    source_registry = load_sources("data/approved_sources.yaml")
+    topic_keywords = yaml.safe_load(
+        Path("data/topic_keywords.yaml").read_text(encoding="utf-8")
+    )
     worker = Worker(
         sessions,
         cipher,
@@ -473,6 +525,11 @@ async def run_worker() -> None:
         llm_max_attempts=settings.llm_max_attempts,
         job_max_attempts=settings.job_max_attempts,
         clock=SystemClock(),
+        knowledge=knowledge,
+        topic_keywords=topic_keywords,
+        knowledge_max_age_days=settings.knowledge_max_age_days,
+        answering_enabled=True,
+        source_registry=source_registry,
     )
     try:
         while True:

@@ -1,0 +1,41 @@
+institute_name: UPSC reference
+owner: Academic head
+last_reviewed: 2026-10-25
+status: TO_VERIFY
+timezone: Asia/Kolkata
+entries:
+  - id: upsc_exam_structure
+    topic: exam_structure
+    text: To be filled from verified official UPSC material.
+    source_note: Verify against the relevant official UPSC publication.
+    source_url: https://upsc.gov.in/
+    last_verified: null
+    status: TO_VERIFY
+  - id: upsc_prelims_overview
+    topic: prelims_overview
+    text: To be filled from verified official UPSC material.
+    source_note: Verify against the relevant official UPSC publication.
+    source_url: https://upsc.gov.in/
+    last_verified: null
+    status: TO_VERIFY
+  - id: upsc_mains_overview
+    topic: mains_overview
+    text: To be filled from verified official UPSC material.
+    source_note: Verify against the relevant official UPSC publication.
+    source_url: https://upsc.gov.in/
+    last_verified: null
+    status: TO_VERIFY
+  - id: upsc_interview_overview
+    topic: interview_overview
+    text: To be filled from verified official UPSC material.
+    source_note: Verify against the relevant official UPSC publication.
+    source_url: https://upsc.gov.in/
+    last_verified: null
+    status: TO_VERIFY
+  - id: upsc_study_basics
+    topic: study_basics
+    text: To be filled from verified official UPSC material.
+    source_note: Verify against the relevant official UPSC publication.
+    source_url: https://upsc.gov.in/
+    last_verified: null
+    status: TO_VERIFY

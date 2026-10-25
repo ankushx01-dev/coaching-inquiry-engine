@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 
 import httpx
 import structlog
@@ -36,6 +37,7 @@ async def decide_safely(
     context: DecisionContext,
     *,
     max_attempts: int | None = None,
+    decision_validator: Callable[[AgentDecision], None] | None = None,
 ) -> AgentDecision:
     settings = get_settings()
     attempts = settings.llm_max_attempts if max_attempts is None else max_attempts
@@ -49,8 +51,16 @@ async def decide_safely(
                 offered_indices=frozenset(
                     option.index for option in context.slot_options
                 ),
-                allowed_snippets=tuple(option.label for option in context.slot_options),
+                allowed_snippets=(
+                    *(option.label for option in context.slot_options),
+                    *(entry.text for entry in context.knowledge_entries),
+                ),
+                required_citation_ids=(
+                    entry.id for entry in context.knowledge_entries
+                ),
             )
+            if decision_validator is not None:
+                decision_validator(decision)
         except _RETRYABLE as exc:
             latency_ms = (time.perf_counter() - started) * 1000
             logger.warning(

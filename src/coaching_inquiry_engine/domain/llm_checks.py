@@ -60,10 +60,15 @@ def check_decision(
     *,
     offered_indices: frozenset[int],
     allowed_snippets: Iterable[str] = (),
+    required_citation_ids: Iterable[str] = (),
 ) -> None:
     """Raise DecisionRejectedError if the decision is unsafe to apply."""
     check_booking_choice(decision, offered_indices)
     check_unapproved_quantities(decision.reply_text, allowed_snippets)
+    citation_ids = tuple(required_citation_ids)
+    if decision.next_action is NextAction.answer_question and citation_ids:
+        if not any(f"[{entry_id}]" in decision.reply_text for entry_id in citation_ids):
+            raise DecisionRejectedError("reply_text must cite a retrieved entry id")
     if reply_requests_personal_data(decision.reply_text):
         raise DecisionRejectedError("reply_text requests personal data")
     check_credential_request(decision.reply_text)

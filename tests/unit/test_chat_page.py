@@ -15,5 +15,8 @@ def test_chat_page_contains_consent_notice_and_uses_text_content() -> None:
     assert "crypto.getRandomValues" in source
     assert "textContent" in source
     assert "innerHTML" not in source
+    assert 'id="typing-indicator"' in source
+    assert 'id="quick-reply-container"' in source
+    assert "quickReply.send_text" in source
     assert 'fetch("/v1/chat/messages"' in source
     assert 'fetch(`/v1/chat/messages?' in source

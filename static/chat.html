@@ -12,6 +12,10 @@
     .message { padding: .75rem 1rem; border-radius: .6rem; white-space: pre-wrap; overflow-wrap: anywhere; }
     .user { background: #e8f0ff; justify-self: end; }
     .reply { background: #eef3f1; justify-self: start; }
+    #typing-indicator { justify-self: start; color: #586579; }
+    #typing-indicator span { animation: pulse 1s infinite; }
+    @keyframes pulse { 50% { opacity: .35; } }
+    #quick-reply-container { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1rem; }
     form { display: flex; gap: .5rem; }
     input[type="text"] { flex: 1; min-width: 0; padding: .7rem; }
     button { padding: .65rem 1rem; }
@@ -30,6 +34,8 @@
     </section>
     <section id="chat-panel" hidden aria-label="Chat">
       <div id="messages" aria-live="polite"></div>
+      <div id="typing-indicator" class="message" hidden><span>Typing…</span></div>
+      <div id="quick-reply-container" aria-label="Quick replies"></div>
       <form id="message-form">
         <label for="message-input">Message</label>
         <input id="message-input" type="text" maxlength="1000" autocomplete="off" required>
@@ -44,11 +50,15 @@
     const beginButton = document.getElementById("begin-button");
     const chatPanel = document.getElementById("chat-panel");
     const messageList = document.getElementById("messages");
+    const typingIndicator = document.getElementById("typing-indicator");
+    const quickReplyContainer = document.getElementById("quick-reply-container");
     const form = document.getElementById("message-form");
     const input = document.getElementById("message-input");
     const status = document.getElementById("status");
     const tokenKey = "cie-chat-session";
     const shownReplyIds = new Map();
+    const pendingReplies = new Map();
+    const matchedReplyIds = new Set();
     const pollErrorText = "Unable to load messages. Please try again.";
     let pollTimerId = null;
     let pollInProgress = false;
@@ -91,6 +101,55 @@
       messageList.replaceChildren(
         ...orderedMessages.map(message => shownReplyIds.get(message.message_id))
       );
+      const pendingMessages = [...pendingReplies.entries()].sort((left, right) => {
+        const leftMessage = orderedMessages.find(message => message.message_id === left[0]);
+        const rightMessage = orderedMessages.find(message => message.message_id === right[0]);
+        return Date.parse(leftMessage?.received_at ?? "") - Date.parse(rightMessage?.received_at ?? "");
+      });
+      for (const [inboundId, timerId] of pendingMessages) {
+        const inbound = orderedMessages.find(message => message.message_id === inboundId);
+        if (!inbound) continue;
+        const inboundTime = Date.parse(inbound.received_at);
+        const matchingReply = orderedMessages.find(
+          message => message.direction === "outbound"
+            && !matchedReplyIds.has(message.message_id)
+            && Date.parse(message.received_at) >= inboundTime
+        );
+        if (matchingReply) {
+          matchedReplyIds.add(matchingReply.message_id);
+          clearTyping(inboundId, timerId);
+        }
+      }
+    }
+
+    function clearTyping(messageId, timerId) {
+      window.clearTimeout(timerId);
+      pendingReplies.delete(messageId);
+      typingIndicator.hidden = pendingReplies.size === 0;
+    }
+
+    function showTyping(messageId) {
+      const timerId = window.setTimeout(() => {
+        pendingReplies.delete(messageId);
+        typingIndicator.hidden = pendingReplies.size === 0;
+      }, 30000);
+      pendingReplies.set(messageId, timerId);
+      typingIndicator.hidden = false;
+    }
+
+    function renderQuickReplies(messages, quickReplies) {
+      quickReplyContainer.replaceChildren();
+      if (!messages.some(message => message.direction === "outbound")) return;
+      for (const quickReply of quickReplies) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = quickReply.label;
+        button.addEventListener("click", () => {
+          input.value = quickReply.send_text;
+          void sendMessage(quickReply.send_text);
+        });
+        quickReplyContainer.append(button);
+      }
     }
 
     async function pollMessages() {
@@ -102,6 +161,7 @@
         if (!response.ok) throw new Error("Could not load messages");
         const data = await response.json();
         renderMessages(data.messages);
+        renderQuickReplies(data.messages, data.quick_replies);
         consecutivePollFailures = 0;
         if (status.textContent === pollErrorText) status.textContent = "";
       } catch (_error) {
@@ -118,9 +178,8 @@
       pollTimerId = window.setInterval(() => void pollMessages(), 2000);
     }
 
-    form.addEventListener("submit", async event => {
-      event.preventDefault();
-      const text = input.value.trim();
+    async function sendMessage(messageText) {
+      const text = messageText.trim();
       if (!text) return;
       status.textContent = "Sending…";
       try {
@@ -150,11 +209,18 @@
           status.textContent = "Something went wrong. Please try again.";
           return;
         }
-        input.value = "";
+        const accepted = await response.json();
+        showTyping(accepted.message_id);
+        if (input.value.trim() === text) input.value = "";
         status.textContent = "";
       } catch (_error) {
         status.textContent = "Something went wrong. Please try again.";
       }
+    }
+
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      void sendMessage(input.value);
     });
 
     startPolling();

@@ -1,0 +1,54 @@
+institute_name: "[INSTITUTE_NAME]"
+owner: Institute staff
+last_reviewed: 2026-10-25
+status: TO_VERIFY
+timezone: Asia/Kolkata
+entries:
+  - id: institute_batches
+    topic: batches
+    text: To be filled by the institute.
+    source_note: Institute-owned course information.
+    last_verified: null
+    status: TO_VERIFY
+  - id: institute_fees
+    topic: fees
+    text: To be filled by the institute.
+    source_note: Institute-owned fee information.
+    last_verified: null
+    status: TO_VERIFY
+  - id: institute_timings
+    topic: timings
+    text: To be filled by the institute.
+    source_note: Institute-owned timing information.
+    last_verified: null
+    status: TO_VERIFY
+  - id: institute_demo_classes
+    topic: demo_classes
+    text: To be filled by the institute.
+    source_note: Institute-owned demo class information.
+    last_verified: null
+    status: TO_VERIFY
+  - id: institute_faculty
+    topic: faculty
+    text: To be filled by the institute.
+    source_note: Institute-owned faculty information.
+    last_verified: null
+    status: TO_VERIFY
+  - id: institute_location
+    topic: location
+    text: To be filled by the institute.
+    source_note: Institute-owned location information.
+    last_verified: null
+    status: TO_VERIFY
+  - id: institute_contact
+    topic: contact
+    text: To be filled by the institute.
+    source_note: Institute-owned contact information.
+    last_verified: null
+    status: TO_VERIFY
+  - id: institute_faq
+    topic: faq
+    text: To be filled by the institute.
+    source_note: Institute-owned frequently asked questions.
+    last_verified: null
+    status: TO_VERIFY

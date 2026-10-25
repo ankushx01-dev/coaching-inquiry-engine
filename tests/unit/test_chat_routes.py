@@ -11,6 +11,7 @@ from httpx import ASGITransport, AsyncClient
 from coaching_inquiry_engine.adapters.rate_limiter_memory import InMemoryRateLimiter
 from coaching_inquiry_engine.api.chat_routes import router
 from coaching_inquiry_engine.domain.models import MessageDirection
+from coaching_inquiry_engine.domain.quick_replies import QuickReply
 from coaching_inquiry_engine.ports.chat_store import StoredChatMessage
 from coaching_inquiry_engine.services.chat_service import ChatMessageService
 
@@ -59,6 +60,7 @@ def _app(
             per_session_per_minute=per_session,
             per_ip_per_minute=per_ip,
         ),
+        (QuickReply(label="Fees", send_text="What are the fees?"),),
     )
     app.include_router(router)
     return app
@@ -162,7 +164,8 @@ async def test_get_returns_both_directions_in_time_order_for_one_session_only() 
                 "text": "reply A",
                 "received_at": "2026-10-25T12:01:00Z",
             },
-        ]
+        ],
+        "quick_replies": [{"label": "Fees", "send_text": "What are the fees?"}],
     }
     assert "private to B" not in response.text
 

@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from coaching_inquiry_engine.domain.models import MessageDirection
+from coaching_inquiry_engine.domain.quick_replies import QuickReply
 from coaching_inquiry_engine.services.chat_service import (
     ChatMessageService,
     RateLimitExceededError,
@@ -41,6 +42,7 @@ class ChatMessageResponse(BaseModel):
 
 class ChatRepliesResponse(BaseModel):
     messages: list[ChatMessageResponse]
+    quick_replies: list[QuickReply]
 
 
 def get_chat_service(request: Request) -> ChatMessageService:
@@ -92,5 +94,6 @@ async def get_chat_replies(
                 received_at=message.received_at,
             )
             for message in messages
-        ]
+        ],
+        quick_replies=list(service.quick_replies),
     )

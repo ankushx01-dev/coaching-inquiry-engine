@@ -48,6 +48,21 @@ CONVERSATION_TEXTS: Mapping[str, str] = MappingProxyType(
             "the institute."
         ),
         "consent_stopped": "You have unsubscribed. We will send no further messages.",
+        "greeting_welcome": (
+            "Hello! I can help with institute courses and UPSC preparation. "
+            "What would you like to know?"
+        ),
+        "help_menu": (
+            "You can ask about courses, fees, batch timings, demo classes, or "
+            "UPSC preparation, or request a counsellor."
+        ),
+        "knowledge_not_found": (
+            "I do not have verified information for that yet. "
+            "The team will confirm it for you."
+        ),
+        "knowledge_stale": (
+            "That information may have changed. The team will confirm it for you."
+        ),
     }
 )
 
