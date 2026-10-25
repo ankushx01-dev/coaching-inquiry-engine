@@ -30,8 +30,11 @@ def _offer_from_row(row: SlotOfferRow) -> SlotOffer:
 
 
 class BookingRepository:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self, session: AsyncSession, *, commit_on_persist: bool = True
+    ) -> None:
         self._session = session
+        self._commit_on_persist = commit_on_persist
 
     async def replace_active_offers(
         self, lead_id: UUID, drafts: list[OfferDraft]
@@ -77,6 +80,20 @@ class BookingRepository:
             return None
         return _offer_from_row(row)
 
+    async def list_active_offers(
+        self, lead_id: UUID, now: datetime
+    ) -> list[SlotOffer]:
+        rows = await self._session.scalars(
+            select(SlotOfferRow)
+            .where(
+                SlotOfferRow.lead_id == lead_id,
+                SlotOfferRow.used.is_(False),
+                SlotOfferRow.expires_at > now,
+            )
+            .order_by(SlotOfferRow.option_index)
+        )
+        return [_offer_from_row(row) for row in rows]
+
     async def persist_booking(
         self,
         *,
@@ -116,4 +133,5 @@ class BookingRepository:
                 )
             )
             await self._session.flush()
-        await self._session.commit()
+        if self._commit_on_persist:
+            await self._session.commit()

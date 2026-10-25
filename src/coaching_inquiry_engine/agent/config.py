@@ -33,6 +33,13 @@ CONVERSATION_TEXTS: Mapping[str, str] = MappingProxyType(
         "offers_refreshed": (
             "[TO_APPROVE] Please choose one of the updated slot options."
         ),
+        "ask_stage": "[TO_APPROVE] Which stage of preparation are you in?",
+        "ask_target": "[TO_APPROVE] Which course or exam target interests you?",
+        "ask_timeline": "[TO_APPROVE] When are you planning to start?",
+        "ask_contact": "[TO_APPROVE] What is the best contact number or email?",
+        "llm_fallback": (
+            "[TO_APPROVE] I cannot respond right now. Please try again later."
+        ),
         "distress_support": (
             "[TO_APPROVE] Support is available. Please reach out to the helpline at "
             "{helpline_number}."

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -16,6 +17,7 @@ from coaching_inquiry_engine.domain.models import (
     Contact,
     ContactChannel,
     Lead,
+    LeadProfile,
     LeadStatus,
 )
 
@@ -47,6 +49,66 @@ class LeadRepository:
         if row is None:
             raise RuntimeError("lead row missing after get_or_create")
         return lead_from_row(row)
+
+    async def get_by_id(self, lead_id: UUID) -> Lead | None:
+        row = await self._session.get(LeadRow, lead_id)
+        return lead_from_row(row) if row is not None else None
+
+    async def get_by_channel_external_user(
+        self, channel: ContactChannel, external_user_id: str
+    ) -> Lead | None:
+        row = await self._session.scalar(
+            select(LeadRow).where(
+                LeadRow.channel == channel.value,
+                LeadRow.external_user_id == external_user_id,
+            )
+        )
+        return lead_from_row(row) if row is not None else None
+
+    async def get_conversation_context(
+        self, lead_id: UUID
+    ) -> dict[str, object] | None:
+        row = await self._session.get(LeadRow, lead_id)
+        if row is None:
+            raise KeyError(f"lead {lead_id} not found")
+        return deepcopy(row.conversation_context)
+
+    async def get_decrypted_contact_value(self, lead_id: UUID) -> str | None:
+        row = await self._session.get(LeadRow, lead_id)
+        if row is None:
+            raise KeyError(f"lead {lead_id} not found")
+        if row.contact_encrypted is None:
+            return None
+        return self._cipher.decrypt(row.contact_encrypted)
+
+    async def save_conversation_context(
+        self,
+        lead_id: UUID,
+        context: dict[str, object],
+        profile: LeadProfile,
+        status: LeadStatus,
+    ) -> None:
+        row = await self._session.get(LeadRow, lead_id)
+        if row is None:
+            raise KeyError(f"lead {lead_id} not found")
+
+        stored_context = deepcopy(context)
+        profile_data = stored_context.get("profile")
+        if isinstance(profile_data, dict):
+            contact_data = profile_data.get("contact")
+            if isinstance(contact_data, dict):
+                contact_data["value"] = "[ENCRYPTED]"
+
+        if profile.contact is not None:
+            row.name = profile.contact.name
+            row.contact_encrypted = self._cipher.encrypt(profile.contact.value)
+            row.contact_hash = self._cipher.hash_contact(profile.contact.value)
+        row.status = status.value
+        row.stage = profile.stage.value if profile.stage is not None else None
+        row.target = profile.target.value if profile.target is not None else None
+        row.timeline = profile.timeline.value if profile.timeline is not None else None
+        row.conversation_context = stored_context
+        await self._session.flush()
 
     async def set_contact(self, lead_id: UUID, contact: Contact) -> Lead:
         row = await self._session.get(LeadRow, lead_id)

@@ -50,6 +50,9 @@ class LeadRow(Base):
     name: Mapped[str | None] = mapped_column(String(60), nullable=True)
     contact_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     contact_hash: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
+    conversation_context: Mapped[dict[str, object] | None] = mapped_column(
+        JSONB, nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -96,6 +99,52 @@ class MessageRow(Base):
     )
 
     lead: Mapped[LeadRow] = relationship(back_populates="messages")
+
+
+class JobRow(Base):
+    __tablename__ = "jobs"
+    __table_args__ = (
+        UniqueConstraint("inbound_message_id", name="uq_jobs_inbound_message_id"),
+        Index(
+            "ix_jobs_status_available_created",
+            "status",
+            "available_at",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    lead_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("leads.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    inbound_message_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("messages.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="queued", server_default=text("'queued'")
+    )
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    available_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
 
 class ConsentRow(Base):

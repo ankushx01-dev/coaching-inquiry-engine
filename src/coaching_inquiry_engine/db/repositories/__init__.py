@@ -3,6 +3,7 @@
 from coaching_inquiry_engine.db.repositories.audits import AuditRepository
 from coaching_inquiry_engine.db.repositories.bookings import BookingRepository
 from coaching_inquiry_engine.db.repositories.consents import ConsentRepository
+from coaching_inquiry_engine.db.repositories.jobs import JobRepository
 from coaching_inquiry_engine.db.repositories.leads import LeadRepository
 from coaching_inquiry_engine.db.repositories.messages import MessageRepository
 
@@ -12,4 +13,5 @@ __all__ = [
     "ConsentRepository",
     "LeadRepository",
     "MessageRepository",
+    "JobRepository",
 ]

@@ -5,17 +5,18 @@ from __future__ import annotations
 import asyncio
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
 from coaching_inquiry_engine.config import get_settings
 from coaching_inquiry_engine.db.base import Base
 from coaching_inquiry_engine.db.models import (  # noqa: F401
     AuditEventRow,
     BookingRow,
     ConsentRow,
+    JobRow,
     LeadRow,
     MessageRow,
     OutboxRow,

@@ -38,6 +38,7 @@ class Timeline(StrEnum):
 
 
 class ContactChannel(StrEnum):
+    chat = "chat"
     whatsapp = "whatsapp"
     call = "call"
     email = "email"
