@@ -1,6 +1,8 @@
 """Domain logic — pure Python, no framework imports."""
 
 from coaching_inquiry_engine.domain.config import (
+    BOOKING_TZ,
+    BUSINESS_HOURS,
     DOCUMENTED_PROMPT_PLACEHOLDERS,
     FALLBACK_TEXTS,
     INSTITUTE_DOMAIN,
@@ -15,6 +17,7 @@ from coaching_inquiry_engine.domain.decisions import (
     FieldUpdates,
     NextAction,
     SlotOption,
+    booking_choice_index,
 )
 from coaching_inquiry_engine.domain.llm_checks import (
     DecisionRejectedError,
@@ -35,6 +38,15 @@ from coaching_inquiry_engine.domain.models import (
     Timeline,
 )
 from coaching_inquiry_engine.domain.qualify import qualify
+from coaching_inquiry_engine.domain.slots import (
+    BookingRejected,
+    Slot,
+    SlotOffer,
+    assert_offer_bookable,
+    candidate_slots,
+    format_slot_label,
+    validate_booking,
+)
 from coaching_inquiry_engine.domain.sources import (
     Found,
     Missing,
@@ -46,6 +58,8 @@ from coaching_inquiry_engine.domain.sources import (
 )
 
 __all__ = [
+    "BOOKING_TZ",
+    "BUSINESS_HOURS",
     "DOCUMENTED_PROMPT_PLACEHOLDERS",
     "FALLBACK_TEXTS",
     "INSTITUTE_DOMAIN",
@@ -54,11 +68,19 @@ __all__ = [
     "PROMPT_VERSION",
     "UPSC_OFFICIAL_HOST",
     "AgentDecision",
+    "BookingRejected",
     "DecisionRejectedError",
     "EscalationReason",
     "FieldUpdates",
     "NextAction",
+    "Slot",
+    "SlotOffer",
     "SlotOption",
+    "assert_offer_bookable",
+    "booking_choice_index",
+    "candidate_slots",
+    "format_slot_label",
+    "validate_booking",
     "BookingStatus",
     "Contact",
     "ContactChannel",

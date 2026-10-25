@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     String,
@@ -128,6 +129,15 @@ class ConsentRow(Base):
 
 class SlotOfferRow(Base):
     __tablename__ = "slot_offers"
+    __table_args__ = (
+        Index(
+            "uq_slot_offers_active_lead_option",
+            "lead_id",
+            "option_index",
+            unique=True,
+            postgresql_where=text("used = false"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
@@ -141,6 +151,7 @@ class SlotOfferRow(Base):
         nullable=False,
         index=True,
     )
+    option_index: Mapped[int] = mapped_column(Integer, nullable=False)
     start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     duration_min: Mapped[int] = mapped_column(Integer, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(

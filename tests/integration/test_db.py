@@ -139,6 +139,7 @@ async def test_retention_deletes_only_old_lost_leads_and_children(
     session.add(
         SlotOfferRow(
             lead_id=lost_old.id,
+            option_index=0,
             start=_NOW,
             duration_min=30,
             expires_at=_NOW + timedelta(hours=2),

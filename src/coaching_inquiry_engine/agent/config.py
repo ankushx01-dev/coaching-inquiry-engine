@@ -16,6 +16,20 @@ CONVERSATION_TEXTS: Mapping[str, str] = MappingProxyType(
         "escalated": "[TO_APPROVE] A counsellor will continue this conversation.",
         "nurture": "[TO_APPROVE] We will follow up when the timing is a better fit.",
         "out_of_scope": "[TO_APPROVE] That option is not in the current offering.",
-        "booking_confirmed": "[TO_APPROVE] The selected slot is confirmed.",
+        "booking_confirmed": (
+            "[TO_APPROVE] The selected slot {label} is confirmed."
+        ),
+        "offer_expired": (
+            "[TO_APPROVE] That slot offer has expired. Fresh options will follow."
+        ),
+        "slot_taken": (
+            "[TO_APPROVE] That slot is no longer available. Fresh options will follow."
+        ),
+        "slot_invalid": (
+            "[TO_APPROVE] That slot cannot be booked. Fresh options will follow."
+        ),
+        "offers_refreshed": (
+            "[TO_APPROVE] Please choose one of the updated slot options."
+        ),
     }
 )

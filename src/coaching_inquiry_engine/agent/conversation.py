@@ -87,11 +87,18 @@ class SendText(_StrictModel):
         return value
 
 
-def resolve_text(key: str) -> str:
-    """Return configured message text for a valid key."""
+def resolve_text(key: str, **placeholders: str) -> str:
+    """Return configured message text for a valid key.
+
+    Time values must not be baked into templates. Pass the system-generated
+    slot label as ``label`` when the template includes that placeholder.
+    """
     if key not in CONVERSATION_TEXTS:
         raise ValueError("key must be a configured conversation text key")
-    return CONVERSATION_TEXTS[key]
+    text = CONVERSATION_TEXTS[key]
+    if placeholders:
+        return text.format(**placeholders)
+    return text
 
 
 class AskField(_StrictModel):

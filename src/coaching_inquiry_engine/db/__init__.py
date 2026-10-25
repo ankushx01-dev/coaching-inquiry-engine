@@ -13,6 +13,7 @@ from coaching_inquiry_engine.db.encryption import (
 )
 from coaching_inquiry_engine.db.repositories import (
     AuditRepository,
+    BookingRepository,
     ConsentRepository,
     LeadRepository,
     MessageRepository,
@@ -22,6 +23,7 @@ from coaching_inquiry_engine.db.session import create_engine, create_session_fac
 __all__ = [
     "FORBIDDEN_AUDIT_KEYS",
     "AuditRepository",
+    "BookingRepository",
     "Base",
     "ConsentRepository",
     "ContactCipher",

@@ -82,3 +82,14 @@ class AgentDecision(_StrictModel):
                 "booking_choice_index must be None unless next_action is booking_choice"
             )
         return self
+
+
+def booking_choice_index(decision: AgentDecision) -> int | None:
+    """Return the LLM-chosen offer index, or None when this is not a booking.
+
+    The index is looked up against stored slot_offers. It is never passed to
+    the calendar; only the stored offer's start and duration are.
+    """
+    if decision.next_action is not NextAction.booking_choice:
+        return None
+    return decision.booking_choice_index
