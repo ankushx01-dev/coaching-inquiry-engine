@@ -12,59 +12,45 @@ HELPLINE_PLACEHOLDER = "{helpline_number}"
 
 CONVERSATION_TEXTS: Mapping[str, str] = MappingProxyType(
     {
-        "off_topic_redirect": (
-            "[TO_APPROVE] Please return to the enrolment questions."
-        ),
-        "escalated": "[TO_APPROVE] A counsellor will continue this conversation.",
-        "nurture": "[TO_APPROVE] We will follow up when the timing is a better fit.",
-        "out_of_scope": "[TO_APPROVE] That option is not in the current offering.",
-        "booking_confirmed": (
-            "[TO_APPROVE] The selected slot {label} is confirmed."
-        ),
-        "offer_expired": (
-            "[TO_APPROVE] That slot offer has expired. Fresh options will follow."
-        ),
-        "slot_taken": (
-            "[TO_APPROVE] That slot is no longer available. Fresh options will follow."
-        ),
-        "slot_invalid": (
-            "[TO_APPROVE] That slot cannot be booked. Fresh options will follow."
-        ),
-        "offers_refreshed": (
-            "[TO_APPROVE] Please choose one of the updated slot options."
-        ),
-        "ask_stage": "[TO_APPROVE] Which stage of preparation are you in?",
-        "ask_target": "[TO_APPROVE] Which course or exam target interests you?",
-        "ask_timeline": "[TO_APPROVE] When are you planning to start?",
-        "ask_contact": "[TO_APPROVE] What is the best contact number or email?",
-        "llm_fallback": (
-            "[TO_APPROVE] I cannot respond right now. Please try again later."
-        ),
+        "off_topic_redirect": "Please return to the enrolment questions.",
+        "escalated": "A counsellor will continue this conversation.",
+        "nurture": "We will follow up when the timing is a better fit.",
+        "out_of_scope": "That option is not in the current offering.",
+        "booking_confirmed": "The selected slot {label} is confirmed.",
+        "offer_expired": "That slot offer has expired. Fresh options will follow.",
+        "slot_taken": "That slot is no longer available. Fresh options will follow.",
+        "slot_invalid": "That slot cannot be booked. Fresh options will follow.",
+        "offers_refreshed": "Please choose one of the updated slot options.",
+        "ask_stage": "Which stage of preparation are you in?",
+        "ask_target": "Which course or exam target interests you?",
+        "ask_timeline": "When are you planning to start?",
+        "ask_contact": "What is the best contact number or email?",
+        "llm_fallback": "I cannot respond right now. Please try again later.",
         "distress_support": (
-            "[TO_APPROVE] Support is available. Please reach out to the helpline at "
+            "Support is available. Please reach out to the helpline at "
             "{helpline_number}."
         ),
         "minor_guardian": (
-            "[TO_APPROVE] A parent or guardian must be linked for enrolment. Please "
+            "A parent or guardian must be linked for enrolment. Please "
             "share your guardian's contact details."
         ),
         "scam_warning": (
-            "[TO_APPROVE] For your security, our institute never requests sensitive "
+            "For your security, our institute never requests sensitive "
             "credentials, passwords, or payment transfers in chat."
         ),
         "fee_dispute_handoff": (
-            "[TO_APPROVE] A senior accounts officer will contact you directly to "
+            "A senior accounts officer will contact you directly to "
             "resolve this fee inquiry."
         ),
-        "human_handoff": (
-            "[TO_APPROVE] Connecting you with a human counsellor right away."
-        ),
+        "human_handoff": "Connecting you with a human counsellor right away.",
         "injection_decline": (
-            "[TO_APPROVE] I can only assist with coaching and course inquiries for "
+            "I can only assist with coaching and course inquiries for "
             "the institute."
         ),
-        "consent_stopped": (
-            "[TO_APPROVE] You have unsubscribed. We will send no further messages."
-        ),
+        "consent_stopped": "You have unsubscribed. We will send no further messages.",
     }
+)
+
+TEXT_REVIEW_STATUS: Mapping[str, str] = MappingProxyType(
+    {key: "TO_APPROVE" for key in CONVERSATION_TEXTS}
 )

@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admissions chat</title>
+  <style>
+    :root { color-scheme: light; font: 16px/1.5 system-ui, sans-serif; }
+    body { margin: 0; background: #f5f7fa; color: #17212f; }
+    main { max-width: 42rem; margin: 2rem auto; padding: 1.25rem; background: white; border-radius: .75rem; }
+    #messages { display: grid; gap: .75rem; margin: 1.25rem 0; }
+    .message { padding: .75rem 1rem; border-radius: .6rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .user { background: #e8f0ff; justify-self: end; }
+    .reply { background: #eef3f1; justify-self: start; }
+    form { display: flex; gap: .5rem; }
+    input[type="text"] { flex: 1; min-width: 0; padding: .7rem; }
+    button { padding: .65rem 1rem; }
+    #status { min-height: 1.5em; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Admissions chat</h1>
+    <section id="consent-panel" aria-labelledby="consent-title">
+      <h2 id="consent-title">Before you begin</h2>
+      <!-- TO_APPROVE -->
+      <p>This is a private AI admissions assistant for [INSTITUTE_NAME]. It is not an official UPSC or government service. Messages are stored.</p>
+      <label><input id="consent-check" type="checkbox"> I understand and agree to continue.</label>
+      <button id="begin-button" type="button" disabled>Continue</button>
+    </section>
+    <section id="chat-panel" hidden aria-label="Chat">
+      <div id="messages" aria-live="polite"></div>
+      <form id="message-form">
+        <label for="message-input">Message</label>
+        <input id="message-input" type="text" maxlength="1000" autocomplete="off" required>
+        <button type="submit">Send</button>
+      </form>
+    </section>
+    <p id="status" role="status"></p>
+  </main>
+  <script>
+    const consentPanel = document.getElementById("consent-panel");
+    const consentCheck = document.getElementById("consent-check");
+    const beginButton = document.getElementById("begin-button");
+    const chatPanel = document.getElementById("chat-panel");
+    const messageList = document.getElementById("messages");
+    const form = document.getElementById("message-form");
+    const input = document.getElementById("message-input");
+    const status = document.getElementById("status");
+    const tokenKey = "cie-chat-session";
+    const shownReplyIds = new Map();
+    const pollErrorText = "Unable to load messages. Please try again.";
+    let pollTimerId = null;
+    let pollInProgress = false;
+    let consecutivePollFailures = 0;
+    let sessionId = sessionStorage.getItem(tokenKey);
+
+    if (!sessionId) {
+      const bytes = crypto.getRandomValues(new Uint8Array(32));
+      sessionId = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+      sessionStorage.setItem(tokenKey, sessionId);
+    }
+
+    consentCheck.addEventListener("change", () => {
+      beginButton.disabled = !consentCheck.checked;
+    });
+
+    beginButton.addEventListener("click", () => {
+      if (!consentCheck.checked) return;
+      sessionStorage.setItem("cie-chat-consent", "true");
+      consentPanel.hidden = true;
+      chatPanel.hidden = false;
+      input.focus();
+      startPolling();
+    });
+
+    function renderMessages(messages) {
+      const orderedMessages = [...messages].sort((left, right) => {
+        const receivedOrder = Date.parse(left.received_at) - Date.parse(right.received_at);
+        return receivedOrder || left.message_id.localeCompare(right.message_id);
+      });
+
+      for (const message of orderedMessages) {
+        if (shownReplyIds.has(message.message_id)) continue;
+        const item = document.createElement("div");
+        item.className = message.direction === "inbound" ? "message user" : "message reply";
+        item.textContent = message.text;
+        shownReplyIds.set(message.message_id, item);
+      }
+
+      messageList.replaceChildren(
+        ...orderedMessages.map(message => shownReplyIds.get(message.message_id))
+      );
+    }
+
+    async function pollMessages() {
+      if (pollInProgress) return;
+      pollInProgress = true;
+      try {
+        const query = new URLSearchParams({ session_id: sessionId });
+        const response = await fetch(`/v1/chat/messages?${query.toString()}`);
+        if (!response.ok) throw new Error("Could not load messages");
+        const data = await response.json();
+        renderMessages(data.messages);
+        consecutivePollFailures = 0;
+        if (status.textContent === pollErrorText) status.textContent = "";
+      } catch (_error) {
+        consecutivePollFailures += 1;
+        if (consecutivePollFailures >= 3) status.textContent = pollErrorText;
+      } finally {
+        pollInProgress = false;
+      }
+    }
+
+    function startPolling() {
+      if (pollTimerId !== null) return;
+      void pollMessages();
+      pollTimerId = window.setInterval(() => void pollMessages(), 2000);
+    }
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      status.textContent = "Sending…";
+      try {
+        const response = await fetch("/v1/chat/messages", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            session_id: sessionId,
+            client_message_id: crypto.randomUUID(),
+            text,
+            consent_given: true
+          })
+        });
+        if (response.status === 429) {
+          status.textContent = "You're sending messages too quickly. Please wait a minute.";
+          return;
+        }
+        if (response.status === 422) {
+          status.textContent = "That message could not be sent. Check its length and try again.";
+          return;
+        }
+        if (response.status >= 500) {
+          status.textContent = "Something went wrong. Please try again.";
+          return;
+        }
+        if (!response.ok) {
+          status.textContent = "Something went wrong. Please try again.";
+          return;
+        }
+        input.value = "";
+        status.textContent = "";
+      } catch (_error) {
+        status.textContent = "Something went wrong. Please try again.";
+      }
+    });
+
+    startPolling();
+  </script>
+</body>
+</html>

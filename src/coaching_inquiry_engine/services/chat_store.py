@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC
 from hashlib import sha256
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from coaching_inquiry_engine.adapters.clock import SystemClock
 from coaching_inquiry_engine.db.encryption import ContactCipher
 from coaching_inquiry_engine.db.repositories.audits import AuditRepository
 from coaching_inquiry_engine.db.repositories.consents import ConsentRepository
@@ -16,7 +17,8 @@ from coaching_inquiry_engine.db.repositories.leads import LeadRepository
 from coaching_inquiry_engine.db.repositories.messages import MessageRepository
 from coaching_inquiry_engine.domain.models import ContactChannel, MessageDirection
 from coaching_inquiry_engine.logging import mask_contact_text
-from coaching_inquiry_engine.ports.chat_store import StoredChatReply
+from coaching_inquiry_engine.ports.chat_store import StoredChatMessage
+from coaching_inquiry_engine.ports.clock import ClockPort
 from coaching_inquiry_engine.services.consent_service import ConsentService
 
 
@@ -35,9 +37,11 @@ class PostgresChatStore:
         self,
         sessions: async_sessionmaker[AsyncSession],
         cipher: ContactCipher,
+        clock: ClockPort | None = None,
     ) -> None:
         self._sessions = sessions
         self._cipher = cipher
+        self._clock = clock or SystemClock()
 
     async def accept_message(
         self,
@@ -49,7 +53,7 @@ class PostgresChatStore:
     ) -> UUID:
         session_key = session_lookup_key(session_id)
         provider_id = idempotency_key(session_id, client_message_id)
-        now = datetime.now(UTC)
+        now = self._clock.now()
         async with self._sessions() as session:
             async with session.begin():
                 lead_repo = LeadRepository(session, self._cipher)
@@ -84,7 +88,7 @@ class PostgresChatStore:
                     await JobRepository(session).enqueue(lead.id, row.id)
                 return row.id
 
-    async def list_replies(self, session_id: str) -> list[StoredChatReply]:
+    async def list_messages(self, session_id: str) -> list[StoredChatMessage]:
         session_key = session_lookup_key(session_id)
         async with self._sessions() as session:
             lead = await LeadRepository(
@@ -92,5 +96,13 @@ class PostgresChatStore:
             ).get_by_channel_external_user(ContactChannel.chat, session_key)
             if lead is None:
                 return []
-            rows = await MessageRepository(session).list_replies(lead.id)
-            return [StoredChatReply(message_id=row.id, text=row.body) for row in rows]
+            rows = await MessageRepository(session).list_chat_messages(lead.id)
+            return [
+                StoredChatMessage(
+                    message_id=row.id,
+                    direction=MessageDirection(row.direction),
+                    text=row.body,
+                    received_at=row.received_at.astimezone(UTC),
+                )
+                for row in rows
+            ]

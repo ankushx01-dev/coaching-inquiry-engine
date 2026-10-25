@@ -1,6 +1,7 @@
 """Application configuration loaded exclusively from environment variables."""
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -27,6 +28,10 @@ class Settings(BaseSettings):
     rate_limit_per_session_per_min: int = 10
     rate_limit_per_ip_per_min: int = 60
     job_max_attempts: int = 5
+    staff_alert_channel: Literal["email", "telegram"] = "email"
+    crm_provider: Literal["fake", "hubspot"] = "fake"
+    outbox_batch_size: int = 20
+    outbox_base_backoff_seconds: float = 1.0
 
 
 @lru_cache

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from coaching_inquiry_engine.ports.chat_store import ChatStorePort, StoredChatReply
+from coaching_inquiry_engine.ports.chat_store import ChatStorePort, StoredChatMessage
 from coaching_inquiry_engine.ports.rate_limiter import RateLimiterPort
 
 
@@ -47,9 +47,9 @@ class ChatMessageService:
         )
         return AcceptedChatMessage(accepted=True, message_id=message_id)
 
-    async def replies(
-        self, *, session_id: str, ip_address: str
-    ) -> list[StoredChatReply]:
-        if not self._rate_limiter.allow(session_id, ip_address):
-            raise RateLimitExceededError
-        return await self._store.list_replies(session_id)
+    async def messages(self, *, session_id: str) -> list[StoredChatMessage]:
+        messages = await self._store.list_messages(session_id)
+        return sorted(
+            messages,
+            key=lambda message: (message.received_at, message.message_id),
+        )

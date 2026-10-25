@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from coaching_inquiry_engine.adapters.calendar_fake import FakeCalendar
+from coaching_inquiry_engine.adapters.clock import SystemClock
 from coaching_inquiry_engine.adapters.llm_ollama import OllamaLlmAdapter
 from coaching_inquiry_engine.adapters.messenger_fake import FakeMessenger
 from coaching_inquiry_engine.agent.conversation import (
@@ -33,6 +34,7 @@ from coaching_inquiry_engine.db.repositories.consents import ConsentRepository
 from coaching_inquiry_engine.db.repositories.jobs import JobRepository
 from coaching_inquiry_engine.db.repositories.leads import LeadRepository
 from coaching_inquiry_engine.db.repositories.messages import MessageRepository
+from coaching_inquiry_engine.db.repositories.outbox import OutboxRepository
 from coaching_inquiry_engine.db.session import create_engine, create_session_factory
 from coaching_inquiry_engine.domain.config import (
     BOOKING_TZ,
@@ -64,9 +66,14 @@ from coaching_inquiry_engine.domain.safety import (
 from coaching_inquiry_engine.domain.slots import format_slot_label
 from coaching_inquiry_engine.logging import mask_contact_text
 from coaching_inquiry_engine.ports.calendar import CalendarPort
+from coaching_inquiry_engine.ports.clock import ClockPort
 from coaching_inquiry_engine.ports.llm import DecisionContext, LlmPort, SanitizedMessage
 from coaching_inquiry_engine.ports.messenger import MessengerPort
 from coaching_inquiry_engine.services.booking_service import BookingService
+from coaching_inquiry_engine.services.escalation_service import (
+    StaffAlertPayload,
+    build_staff_payload,
+)
 from coaching_inquiry_engine.services.job_retry import retry_at
 from coaching_inquiry_engine.services.llm_guard import LLMUnavailable, decide_safely
 from coaching_inquiry_engine.services.safety_keywords import load_safety_keywords
@@ -79,6 +86,7 @@ class TurnResult:
     text_keys: list[str]
     stored_texts: list[str]
     llm_unavailable: bool
+    staff_alert_payload: StaffAlertPayload | None
 
 
 class Worker:
@@ -94,6 +102,7 @@ class Worker:
         offered_targets: frozenset[Target] = OFFERED_TARGETS,
         llm_max_attempts: int = 3,
         job_max_attempts: int = 5,
+        clock: ClockPort | None = None,
     ) -> None:
         self._sessions = sessions
         self._cipher = cipher
@@ -104,6 +113,7 @@ class Worker:
         self._offered_targets = offered_targets
         self._llm_max_attempts = llm_max_attempts
         self._job_max_attempts = job_max_attempts
+        self._clock = clock or SystemClock()
 
     async def process_turn(
         self,
@@ -160,6 +170,20 @@ class Worker:
         new_context, actions = handle_event(
             context, event, self._offered_targets, now
         )
+        staff_action = next(
+            (action for action in actions if isinstance(action, NotifyStaff)), None
+        )
+        staff_alert_payload = (
+            build_staff_payload(
+                lead_id=lead_id,
+                status=staff_action.status,
+                reason=staff_action.reason,
+                messages=[message.text for message in messages],
+                flags=new_context.flags,
+            )
+            if staff_action is not None
+            else None
+        )
 
         booking_result_key: str | None = None
         booking_label: str | None = None
@@ -210,12 +234,13 @@ class Worker:
             text_keys=text_keys,
             stored_texts=stored_texts,
             llm_unavailable=llm_unavailable,
+            staff_alert_payload=staff_alert_payload,
         )
 
     async def run_once(self) -> bool:
         job_id: UUID | None = None
         claimed_attempt = 1
-        now = datetime.now(UTC)
+        now = self._clock.now()
         try:
             async with self._sessions() as session:
                 async with session.begin():
@@ -231,7 +256,7 @@ class Worker:
         except Exception as exc:
             if job_id is None:
                 raise
-            failed_at = datetime.now(UTC)
+            failed_at = self._clock.now()
             async with self._sessions() as session:
                 async with session.begin():
                     await JobRepository(session).mark_failed(
@@ -294,11 +319,12 @@ class Worker:
             now=now,
             booking_service=booking_service,
         )
-        await leads.save_conversation_context(
-            lead.id,
-            result.context.model_dump(mode="json"),
-            result.context.profile,
-            result.status,
+        await self._persist_context_and_staff_alert(
+            session=session,
+            leads=leads,
+            lead_id=lead.id,
+            result=result,
+            now=now,
         )
         for index, text in enumerate(result.stored_texts):
             await message_repo.insert_message_if_new(
@@ -338,6 +364,30 @@ class Worker:
             profile["contact"] = None
         else:
             contact["value"] = value
+
+    @staticmethod
+    async def _persist_context_and_staff_alert(
+        *,
+        session: AsyncSession,
+        leads: LeadRepository,
+        lead_id: UUID,
+        result: TurnResult,
+        now: datetime,
+    ) -> None:
+        await leads.save_conversation_context(
+            lead_id,
+            result.context.model_dump(mode="json"),
+            result.context.profile,
+            result.status,
+        )
+        if result.staff_alert_payload is not None:
+            await OutboxRepository.enqueue_in_session(
+                session,
+                lead_id=lead_id,
+                target="staff_alert",
+                payload=result.staff_alert_payload.model_dump(mode="json"),
+                available_at=now,
+            )
 
     @staticmethod
     def _can_send(consent_granted: bool) -> bool:
@@ -422,6 +472,7 @@ async def run_worker() -> None:
         FakeCalendar(),
         llm_max_attempts=settings.llm_max_attempts,
         job_max_attempts=settings.job_max_attempts,
+        clock=SystemClock(),
     )
     try:
         while True:

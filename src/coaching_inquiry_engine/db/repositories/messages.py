@@ -75,3 +75,20 @@ class MessageRepository:
                 .order_by(MessageRow.received_at, MessageRow.id)
             )
         )
+
+    async def list_chat_messages(self, lead_id: UUID) -> list[MessageRow]:
+        return list(
+            await self._session.scalars(
+                select(MessageRow)
+                .where(
+                    MessageRow.lead_id == lead_id,
+                    MessageRow.direction.in_(
+                        [
+                            MessageDirection.inbound.value,
+                            MessageDirection.outbound.value,
+                        ]
+                    ),
+                )
+                .order_by(MessageRow.received_at, MessageRow.id)
+            )
+        )

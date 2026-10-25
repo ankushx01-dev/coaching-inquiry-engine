@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from coaching_inquiry_engine.domain.models import MessageDirection
 from coaching_inquiry_engine.services.chat_service import (
     ChatMessageService,
     RateLimitExceededError,
@@ -30,17 +32,19 @@ class AcceptedMessageResponse(BaseModel):
     message_id: UUID
 
 
-class ChatReplyResponse(BaseModel):
+class ChatMessageResponse(BaseModel):
     message_id: UUID
+    direction: MessageDirection
     text: str
+    received_at: datetime
 
 
 class ChatRepliesResponse(BaseModel):
-    messages: list[ChatReplyResponse]
+    messages: list[ChatMessageResponse]
 
 
 def get_chat_service(request: Request) -> ChatMessageService:
-    return request.app.state.chat_message_service
+    return cast(ChatMessageService, request.app.state.chat_message_service)
 
 
 router = APIRouter(prefix="/v1/chat/messages", tags=["chat"])
@@ -71,7 +75,6 @@ async def post_chat_message(
 
 @router.get("", response_model=ChatRepliesResponse)
 async def get_chat_replies(
-    request: Request,
     service: Annotated[ChatMessageService, Depends(get_chat_service)],
     session_id: str = Query(
         min_length=32,
@@ -79,14 +82,15 @@ async def get_chat_replies(
         pattern=_SESSION_TOKEN,
     ),
 ) -> ChatRepliesResponse:
-    ip_address = request.client.host if request.client is not None else "unknown"
-    try:
-        replies = await service.replies(session_id=session_id, ip_address=ip_address)
-    except RateLimitExceededError as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS) from exc
+    messages = await service.messages(session_id=session_id)
     return ChatRepliesResponse(
         messages=[
-            ChatReplyResponse(message_id=reply.message_id, text=reply.text)
-            for reply in replies
+            ChatMessageResponse(
+                message_id=message.message_id,
+                direction=message.direction,
+                text=message.text,
+                received_at=message.received_at,
+            )
+            for message in messages
         ]
     )

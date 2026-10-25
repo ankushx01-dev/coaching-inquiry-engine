@@ -7,7 +7,10 @@ from uuid import uuid4
 
 import pytest
 
-from coaching_inquiry_engine.agent.config import CONVERSATION_TEXTS
+from coaching_inquiry_engine.agent.config import (
+    CONVERSATION_TEXTS,
+    TEXT_REVIEW_STATUS,
+)
 from coaching_inquiry_engine.domain.config import BOOKING_TZ, BUSINESS_HOURS
 from coaching_inquiry_engine.domain.slots import (
     BookingRejected,
@@ -114,8 +117,13 @@ def test_booking_text_templates_have_no_raw_times() -> None:
         "offers_refreshed",
     ):
         text = CONVERSATION_TEXTS[key].replace("{label}", "")
-        assert "[TO_APPROVE]" in CONVERSATION_TEXTS[key]
+        assert TEXT_REVIEW_STATUS[key] == "TO_APPROVE"
         assert ":" not in text or key == "booking_confirmed"
         assert "AM" not in text
         assert "PM" not in text
         assert "2026" not in text
+
+
+def test_conversation_texts_are_unmarked_and_all_have_review_status() -> None:
+    assert all("TO_APPROVE" not in value for value in CONVERSATION_TEXTS.values())
+    assert set(TEXT_REVIEW_STATUS) == set(CONVERSATION_TEXTS)

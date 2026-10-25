@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI
@@ -9,7 +10,8 @@ from httpx import ASGITransport, AsyncClient
 
 from coaching_inquiry_engine.adapters.rate_limiter_memory import InMemoryRateLimiter
 from coaching_inquiry_engine.api.chat_routes import router
-from coaching_inquiry_engine.ports.chat_store import StoredChatReply
+from coaching_inquiry_engine.domain.models import MessageDirection
+from coaching_inquiry_engine.ports.chat_store import StoredChatMessage
 from coaching_inquiry_engine.services.chat_service import ChatMessageService
 
 _SESSION_A = "A" * 43
@@ -20,7 +22,7 @@ class _MemoryChatStore:
     def __init__(self) -> None:
         self.message_ids: dict[tuple[str, str], UUID] = {}
         self.enqueued: list[tuple[str, str]] = []
-        self.replies_by_session: dict[str, list[StoredChatReply]] = {}
+        self.messages_by_session: dict[str, list[StoredChatMessage]] = {}
 
     async def accept_message(
         self,
@@ -40,8 +42,8 @@ class _MemoryChatStore:
         self.enqueued.append(key)
         return message_id
 
-    async def list_replies(self, session_id: str) -> list[StoredChatReply]:
-        return self.replies_by_session.get(session_id, [])
+    async def list_messages(self, session_id: str) -> list[StoredChatMessage]:
+        return self.messages_by_session.get(session_id, [])
 
 
 def _app(
@@ -109,14 +111,32 @@ async def test_repeated_client_message_id_returns_original_without_enqueueing() 
     assert store.enqueued == [(_SESSION_A, "client-1")]
 
 
-async def test_get_returns_only_sanitized_replies_for_requested_session() -> None:
+async def test_get_returns_both_directions_in_time_order_for_one_session_only() -> None:
     store = _MemoryChatStore()
-    store.replies_by_session = {
+    first_time = datetime(2026, 10, 25, 12, 0, tzinfo=UTC)
+    second_time = datetime(2026, 10, 25, 12, 1, tzinfo=UTC)
+    store.messages_by_session = {
         _SESSION_A: [
-            StoredChatReply(UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), "reply A")
+            StoredChatMessage(
+                UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+                MessageDirection.outbound,
+                "reply A",
+                second_time,
+            ),
+            StoredChatMessage(
+                UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                MessageDirection.inbound,
+                "hello A",
+                first_time,
+            ),
         ],
         _SESSION_B: [
-            StoredChatReply(UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), "reply B")
+            StoredChatMessage(
+                UUID("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+                MessageDirection.inbound,
+                "private to B",
+                first_time,
+            )
         ],
     }
     app = _app(store)
@@ -132,10 +152,19 @@ async def test_get_returns_only_sanitized_replies_for_requested_session() -> Non
         "messages": [
             {
                 "message_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                "direction": "inbound",
+                "text": "hello A",
+                "received_at": "2026-10-25T12:00:00Z",
+            },
+            {
+                "message_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                "direction": "outbound",
                 "text": "reply A",
-            }
+                "received_at": "2026-10-25T12:01:00Z",
+            },
         ]
     }
+    assert "private to B" not in response.text
 
 
 async def test_rate_limit_returns_429_after_session_threshold() -> None:
@@ -161,4 +190,20 @@ async def test_rate_limit_returns_429_after_ip_threshold() -> None:
         )
 
     assert first.status_code == 202
+    assert second.status_code == 429
+
+
+async def test_polling_get_does_not_consume_the_message_send_limit() -> None:
+    app = _app(_MemoryChatStore(), per_session=1)
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        first = await _post(client)
+        poll = await client.get(
+            "/v1/chat/messages", params={"session_id": _SESSION_A}
+        )
+        second = await _post(client, client_message_id="client-2")
+
+    assert first.status_code == 202
+    assert poll.status_code == 200
     assert second.status_code == 429

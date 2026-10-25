@@ -249,6 +249,9 @@ class BookingRow(Base):
 
 class OutboxRow(Base):
     __tablename__ = "outbox"
+    __table_args__ = (
+        Index("ix_outbox_status_next_attempt", "status", "next_attempt_at", "id"),
+    )
 
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
@@ -271,6 +274,8 @@ class OutboxRow(Base):
     next_attempt_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     lead: Mapped[LeadRow] = relationship(back_populates="outbox_rows")
 

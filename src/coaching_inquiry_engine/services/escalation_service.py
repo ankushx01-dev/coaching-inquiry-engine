@@ -22,6 +22,10 @@ class StaffNotificationPayload(BaseModel):
     prompt_version: str
 
 
+# Staff alert delivery uses the existing escalation payload schema.
+StaffAlertPayload = StaffNotificationPayload
+
+
 def build_staff_payload(
     *,
     lead_id: UUID,

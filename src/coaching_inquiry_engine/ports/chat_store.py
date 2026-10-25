@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from coaching_inquiry_engine.domain.models import MessageDirection
+
 
 @dataclass(frozen=True, slots=True)
-class StoredChatReply:
+class StoredChatMessage:
     message_id: UUID
+    direction: MessageDirection
     text: str
+    received_at: datetime
 
 
 class ChatStorePort(Protocol):
@@ -23,4 +28,4 @@ class ChatStorePort(Protocol):
         consent_given: bool,
     ) -> UUID: ...
 
-    async def list_replies(self, session_id: str) -> list[StoredChatReply]: ...
+    async def list_messages(self, session_id: str) -> list[StoredChatMessage]: ...

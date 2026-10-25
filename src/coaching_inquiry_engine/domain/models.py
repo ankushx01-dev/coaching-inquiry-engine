@@ -51,6 +51,7 @@ class MessageDirection(StrEnum):
 
 class OutboxStatus(StrEnum):
     pending = "pending"
+    processing = "processing"
     sent = "sent"
     dead = "dead"
 

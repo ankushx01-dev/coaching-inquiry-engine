@@ -7,7 +7,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from coaching_inquiry_engine.adapters.clock import SystemClock
 from coaching_inquiry_engine.adapters.rate_limiter_memory import InMemoryRateLimiter
+from coaching_inquiry_engine.api.chat_page import router as chat_page_router
 from coaching_inquiry_engine.api.chat_routes import router as chat_router
 from coaching_inquiry_engine.api.health import router as health_router
 from coaching_inquiry_engine.config import get_settings
@@ -41,7 +43,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     application.state.chat_message_service = ChatMessageService(
-        PostgresChatStore(sessions, ContactCipher.from_settings(settings)),
+        PostgresChatStore(
+            sessions, ContactCipher.from_settings(settings), clock=SystemClock()
+        ),
         InMemoryRateLimiter(
             per_session_per_minute=settings.rate_limit_per_session_per_min,
             per_ip_per_minute=settings.rate_limit_per_ip_per_min,
@@ -55,6 +59,7 @@ def create_app() -> FastAPI:
     )
     application.include_router(health_router)
     application.include_router(chat_router)
+    application.include_router(chat_page_router)
     return application
 
 
