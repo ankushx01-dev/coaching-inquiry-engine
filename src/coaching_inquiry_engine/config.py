@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 20
     llm_max_attempts: int = 3
     chat_allowed_origin: str = "http://localhost:3000"
+    institute_display_name: str = "coaching-enquiry"
     rate_limit_per_session_per_min: int = 10
     rate_limit_per_ip_per_min: int = 60
     job_max_attempts: int = 5
@@ -33,6 +34,15 @@ class Settings(BaseSettings):
     outbox_batch_size: int = 20
     outbox_base_backoff_seconds: float = 1.0
     knowledge_max_age_days: int = 30
+    age_bands: list[str] = ["under 18", "18-21", "22-25", "26-30", "above 30"]
+    qualification_options: list[str] = [
+        "Class 10",
+        "Class 12",
+        "Diploma",
+        "Undergraduate",
+        "Graduate",
+        "Postgraduate",
+    ]
 
 
 @lru_cache

@@ -49,7 +49,7 @@ CONVERSATION_TEXTS: Mapping[str, str] = MappingProxyType(
         ),
         "consent_stopped": "You have unsubscribed. We will send no further messages.",
         "greeting_welcome": (
-            "Hello! I can help with institute courses and UPSC preparation. "
+            "Hello! I can help with {display_name} courses and UPSC preparation. "
             "What would you like to know?"
         ),
         "help_menu": (
@@ -63,6 +63,29 @@ CONVERSATION_TEXTS: Mapping[str, str] = MappingProxyType(
         "knowledge_stale": (
             "That information may have changed. The team will confirm it for you."
         ),
+        "course_info_pending": (
+            "I do not have verified course details for that exam yet. "
+            "The team will confirm them for you."
+        ),
+        "prediction_declined": (
+            "No one can predict exam results. A counsellor can explain "
+            "your preparation options."
+        ),
+        "eligibility_ask_age": (
+            "Which age band applies to you? Please choose an option below."
+        ),
+        "eligibility_ask_qualification": (
+            "What is your highest qualification? Please choose an option below."
+        ),
+        "eligibility_pending": (
+            "I do not have verified eligibility information for this exam yet. "
+            "The team will confirm it. Please check the official notice: "
+            "{official_url}"
+        ),
+        "category_menu_intro": "Choose an exam category to see available exams.",
+        "exam_menu_intro": "Choose an exam from this category.",
+        "exam_selected": "Thanks. Choose an option below for this exam.",
+        "ask_name": "What name should I use when we speak with you?",
     }
 )
 

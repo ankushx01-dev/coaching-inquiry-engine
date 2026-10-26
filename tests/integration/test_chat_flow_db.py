@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from coaching_inquiry_engine.adapters.calendar_fake import FakeCalendar
 from coaching_inquiry_engine.adapters.llm_fake import FakeLlmAdapter
 from coaching_inquiry_engine.adapters.messenger_fake import FakeMessenger
-from coaching_inquiry_engine.agent.config import CONVERSATION_TEXTS
+from coaching_inquiry_engine.agent.conversation import resolve_text
 from coaching_inquiry_engine.db.encryption import ContactCipher
 from coaching_inquiry_engine.db.repositories.consents import ConsentRepository
 from coaching_inquiry_engine.db.repositories.jobs import JobRepository
@@ -89,7 +89,10 @@ async def test_hi_sends_welcome_without_calling_llm(
 
     assert llm.calls == 0
     assert messenger.sent_texts == [
-        ("hello-session", CONVERSATION_TEXTS["greeting_welcome"])
+        (
+            "hello-session",
+            resolve_text("greeting_welcome", display_name="coaching-enquiry"),
+        )
     ]
 
 

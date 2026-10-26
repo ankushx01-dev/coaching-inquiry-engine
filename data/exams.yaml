@@ -1,0 +1,52 @@
+categories:
+  - category_id: engineering_medical
+    display_name: Engineering and medical
+  - category_id: civil_services
+    display_name: Civil services
+  - category_id: government_banking
+    display_name: Government and banking
+  - category_id: defence_officer
+    display_name: Defence officer
+  - category_id: agnipath
+    display_name: Agnipath
+exams:
+  - exam_id: jee_main
+    display_name: JEE Main
+    category: engineering_medical
+    status: ACTIVE
+    official_notice_url: https://jeemain.nta.nic.in/
+  - exam_id: neet_ug
+    display_name: NEET UG
+    category: engineering_medical
+    status: ACTIVE
+    official_notice_url: https://neet.nta.nic.in/
+  - exam_id: upsc_cse
+    display_name: UPSC Civil Services Examination
+    category: civil_services
+    status: ACTIVE
+    official_notice_url: https://upsc.gov.in/
+  - exam_id: ssc_cgl
+    display_name: SSC CGL
+    category: government_banking
+    status: ACTIVE
+    official_notice_url: https://ssc.gov.in/
+  - exam_id: ibps_po
+    display_name: IBPS PO
+    category: government_banking
+    status: ACTIVE
+    official_notice_url: https://www.ibps.in/
+  - exam_id: cds
+    display_name: Combined Defence Services
+    category: defence_officer
+    status: ACTIVE
+    official_notice_url: https://upsc.gov.in/
+  - exam_id: nda
+    display_name: National Defence Academy
+    category: defence_officer
+    status: ACTIVE
+    official_notice_url: https://upsc.gov.in/
+  - exam_id: agnipath
+    display_name: Agnipath
+    category: agnipath
+    status: ACTIVE
+    official_notice_url: https://joinindianarmy.nic.in/

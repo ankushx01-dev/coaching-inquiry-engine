@@ -60,7 +60,9 @@ async def _lead_with_jobs(
         )
         message = await messages.get_by_provider_message_id(provider_id)
         assert message is not None
-        jobs.append(await JobRepository(session).enqueue(lead.id, message.id))
+        job = await JobRepository(session).enqueue(lead.id, message.id)
+        job.available_at = _NOW
+        jobs.append(job)
     return lead, jobs
 
 

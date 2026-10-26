@@ -148,13 +148,14 @@ def _verified_source_entries(
 ) -> list[KnowledgeEntry]:
     question_tokens = set(re.findall(r"[^\W_]+", question.casefold()))
     result: list[KnowledgeEntry] = []
-    for topic in source_registry:
+    for key, source in source_registry.items():
+        topic = source.topic
         keywords = set(re.findall(r"[^\W_]+", topic.casefold()))
         for keyword in topic_keywords.get(topic, []):
             keywords.update(re.findall(r"[^\W_]+", keyword.casefold()))
         if not question_tokens.intersection(keywords):
             continue
-        lookup = get_source(source_registry, topic, today, max_age_days)
+        lookup = get_source(source_registry, key, today, max_age_days)
         if isinstance(lookup, (Found, Stale)):
             verified = lookup.entry
             if verified.answer_summary is None or verified.last_verified is None:

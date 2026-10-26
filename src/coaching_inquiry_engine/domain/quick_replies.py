@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 class QuickReply(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    action_id: str = Field(min_length=1, max_length=128)
     label: str = Field(min_length=1, max_length=60)
     send_text: str = Field(min_length=1, max_length=1000)
 

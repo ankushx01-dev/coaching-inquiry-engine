@@ -52,6 +52,7 @@ class SourceEntry(BaseModel):
     last_verified: date | None = None
     owner: str
     status: SourceStatus
+    exam_id: str | None = None
 
     @field_validator("official_url")
     @classmethod
@@ -117,11 +118,16 @@ def load_sources(path: Path | str) -> dict[str, SourceEntry]:
             entry = SourceEntry.model_validate(item)
         except PydanticValidationError as exc:
             raise SourceLoadError(f"invalid source entry {entry_id}: {exc}") from exc
-        if entry.topic in registry:
+        registry_key = (
+            f"{entry.exam_id}:{entry.topic}"
+            if entry.exam_id is not None
+            else entry.topic
+        )
+        if registry_key in registry:
             raise SourceLoadError(
-                f"invalid source entry {entry.id}: duplicate topic {entry.topic}"
+                f"invalid source entry {entry.id}: duplicate source key {registry_key}"
             )
-        registry[entry.topic] = entry
+        registry[registry_key] = entry
     return registry
 
 

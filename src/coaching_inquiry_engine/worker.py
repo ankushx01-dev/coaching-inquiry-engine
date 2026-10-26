@@ -39,6 +39,15 @@ from coaching_inquiry_engine.db.repositories.leads import LeadRepository
 from coaching_inquiry_engine.db.repositories.messages import MessageRepository
 from coaching_inquiry_engine.db.repositories.outbox import OutboxRepository
 from coaching_inquiry_engine.db.session import create_engine, create_session_factory
+from coaching_inquiry_engine.domain.chat_routing import (
+    extract_name,
+    is_human_request,
+    is_prediction_question,
+    normalize_chat_text,
+    parse_stage,
+    parse_target,
+    parse_timeline,
+)
 from coaching_inquiry_engine.domain.config import (
     BOOKING_TZ,
     OFFERED_TARGETS,
@@ -51,7 +60,12 @@ from coaching_inquiry_engine.domain.decisions import (
     NextAction,
     SlotOption,
 )
-from coaching_inquiry_engine.domain.knowledge import KnowledgeEntry, load_knowledge
+from coaching_inquiry_engine.domain.exam_menu import Exam, ExamMenuFile, load_exam_menu
+from coaching_inquiry_engine.domain.knowledge import (
+    CourseInfoEntry,
+    KnowledgeEntry,
+    load_knowledge,
+)
 from coaching_inquiry_engine.domain.models import (
     Contact,
     ContactChannel,
@@ -94,6 +108,13 @@ class TurnResult:
     staff_alert_payload: StaffAlertPayload | None
 
 
+@dataclass(frozen=True, slots=True)
+class _RoutedReply:
+    text_key: str | None = None
+    reply_text: str | None = None
+    context_updates: dict[str, object] | None = None
+
+
 class Worker:
     def __init__(
         self,
@@ -113,6 +134,16 @@ class Worker:
         knowledge_max_age_days: int = 30,
         answering_enabled: bool = False,
         source_registry: dict[str, SourceEntry] | None = None,
+        exam_menu: ExamMenuFile | None = None,
+        courses: dict[str, dict[str, CourseInfoEntry | str]] | None = None,
+        age_bands: tuple[str, ...] = (
+            "under 18", "18-21", "22-25", "26-30", "above 30"
+        ),
+        qualification_options: tuple[str, ...] = (
+            "Class 10", "Class 12", "Diploma", "Undergraduate", "Graduate",
+            "Postgraduate",
+        ),
+        display_name: str = "coaching-enquiry",
     ) -> None:
         self._sessions = sessions
         self._cipher = cipher
@@ -129,6 +160,11 @@ class Worker:
         self._knowledge_max_age_days = knowledge_max_age_days
         self._answering_enabled = answering_enabled
         self._source_registry = source_registry or {}
+        self._exam_menu = exam_menu
+        self._courses = courses or {}
+        self._age_bands = age_bands
+        self._qualification_options = qualification_options
+        self._display_name = display_name
 
     async def process_turn(
         self,
@@ -144,6 +180,24 @@ class Worker:
         booking_service: BookingService | None = None,
     ) -> TurnResult:
         detected_flags = detect_triggers(inbound_text, self._keywords)
+        if (
+            is_human_request(inbound_text)
+            and not detected_flags.human_request
+            and not detected_flags.injection_attempt
+        ):
+            detected_flags = detected_flags.model_copy(
+                update={"human_request": True}
+            )
+        has_safety_or_handoff = any(detected_flags.model_dump().values())
+        extracted_name = (
+            None if has_safety_or_handoff else extract_name(inbound_text)
+        )
+        parsed_fields = _parse_open_question(context, inbound_text)
+        routed = (
+            None
+            if has_safety_or_handoff or parsed_fields is not None or extracted_name
+            else self._route_deterministic(inbound_text, context)
+        )
         decision: AgentDecision | None
         llm_unavailable = False
         messages = list(prior_messages[-9:])
@@ -160,7 +214,15 @@ class Worker:
             slot_options=slot_options,
         )
         answering_result = None
-        if self._answering_enabled:
+        skip_llm = (
+            has_safety_or_handoff
+            or parsed_fields is not None
+            or extracted_name is not None
+            or routed is not None
+        )
+        if skip_llm:
+            decision = None
+        elif self._answering_enabled:
             try:
                 answering_result = await answer_message(
                     inbound_text,
@@ -188,7 +250,11 @@ class Worker:
                 decision = None
                 llm_unavailable = True
 
-        extracted = _decision_profile_updates(context.profile, decision)
+        extracted = (
+            parsed_fields
+            if parsed_fields is not None
+            else _decision_profile_updates(context.profile, decision)
+        )
         merged_profile = _merge_profile(context.profile, extracted)
         merged_flags = _merge_flags(context.flags, detected_flags)
         status = qualify(merged_profile, merged_flags, self._offered_targets)
@@ -200,10 +266,19 @@ class Worker:
                 decision is not None
                 and decision.next_action is NextAction.redirect_off_topic
             ),
+            extracted_name=extracted_name,
         )
-        new_context, actions = handle_event(
-            context, event, self._offered_targets, now
-        )
+        if routed is not None:
+            context_updates: dict[str, object] = {
+                "message_count": context.message_count + 1
+            }
+            context_updates.update(routed.context_updates or {})
+            new_context = context.model_copy(update=context_updates)
+            actions: list[ConversationAction] = []
+        else:
+            new_context, actions = handle_event(
+                context, event, self._offered_targets, now
+            )
         staff_action = next(
             (action for action in actions if isinstance(action, NotifyStaff)), None
         )
@@ -234,9 +309,13 @@ class Worker:
             booking_result_key = booking_result.text_key
             booking_label = booking_result.label
 
-        if any(detected_flags.model_dump().values()):
+        if has_safety_or_handoff:
             plan = plan_response(detected_flags)
             text_keys = [plan.text_key] if plan.text_key is not None else []
+        elif routed is not None and routed.text_key is not None:
+            text_keys = [routed.text_key]
+        elif routed is not None:
+            text_keys = []
         elif answering_result is not None and answering_result.text_key is not None:
             text_keys = [answering_result.text_key]
         elif llm_unavailable:
@@ -255,14 +334,28 @@ class Worker:
         if self._can_send(consent_granted):
             for key in dict.fromkeys(text_keys):
                 action = SendText(text_key=key)
-                placeholders = (
-                    {"label": booking_label}
-                    if action.text_key == "booking_confirmed" and booking_label
-                    else {}
-                )
+                placeholders: dict[str, str] = {}
+                if action.text_key == "greeting_welcome":
+                    placeholders["display_name"] = self._display_name
+                if action.text_key == "booking_confirmed" and booking_label:
+                    placeholders["label"] = booking_label
+                if action.text_key == "eligibility_pending":
+                    selected_exam = new_context.selected_exam
+                    if selected_exam is None:
+                        raise RuntimeError(
+                            "eligibility response has no selected exam"
+                        )
+                    placeholders = {
+                        "official_url": str(
+                            self._get_exam(selected_exam).official_notice_url
+                        )
+                    }
                 text = resolve_text(action.text_key, **placeholders)
                 await self._messenger.send_text(recipient, text)
                 stored_texts.append(mask_contact_text(text))
+            if routed is not None and routed.reply_text is not None:
+                await self._messenger.send_text(recipient, routed.reply_text)
+                stored_texts.append(mask_contact_text(routed.reply_text))
             if (
                 answering_result is not None
                 and decision is not None
@@ -279,6 +372,177 @@ class Worker:
             llm_unavailable=llm_unavailable,
             staff_alert_payload=staff_alert_payload,
         )
+
+    def _route_deterministic(
+        self, text: str, context: ConversationContext
+    ) -> _RoutedReply | None:
+        if self._exam_menu is None:
+            if is_prediction_question(text):
+                return _RoutedReply(text_key="prediction_declined")
+            return None
+
+        raw = text.strip()
+        normalized = normalize_chat_text(raw)
+        if is_prediction_question(raw):
+            return _RoutedReply(text_key="prediction_declined")
+
+        if raw == "category:more" or normalized == "more":
+            return _RoutedReply(
+                text_key="category_menu_intro",
+                context_updates={"category_page": context.category_page + 1},
+            )
+        if raw == "category:back" or normalized == "back":
+            if context.selected_category is not None:
+                return _RoutedReply(
+                    text_key="category_menu_intro",
+                    context_updates={"selected_category": None},
+                )
+            return _RoutedReply(
+                text_key="category_menu_intro",
+                context_updates={"category_page": max(0, context.category_page - 1)},
+            )
+
+        selected_category: str | None = None
+        if raw.startswith("category:"):
+            selected_category = raw.removeprefix("category:")
+        else:
+            selected_category = next(
+                (
+                    category.category_id
+                    for category in self._exam_menu.categories
+                    if normalize_chat_text(category.display_name) == normalized
+                ),
+                None,
+            )
+        if selected_category == "more":
+            return _RoutedReply(
+                text_key="category_menu_intro",
+                context_updates={"category_page": context.category_page + 1},
+            )
+        if selected_category is not None and any(
+            category.category_id == selected_category
+            for category in self._exam_menu.categories
+        ):
+            return _RoutedReply(
+                text_key="exam_menu_intro",
+                context_updates={
+                    "selected_category": selected_category,
+                    "selected_exam": None,
+                    "category_page": 0,
+                },
+            )
+
+        selected_exam: Exam | None = None
+        if raw.startswith("exam:"):
+            exam_id = raw.removeprefix("exam:")
+            selected_exam = next(
+                (exam for exam in self._exam_menu.exams if exam.exam_id == exam_id),
+                None,
+            )
+        elif context.selected_category is not None:
+            selected_exam = next(
+                (
+                    exam
+                    for exam in self._exam_menu.exams
+                    if exam.category == context.selected_category
+                    and normalize_chat_text(exam.display_name) == normalized
+                    and exam.status == "ACTIVE"
+                ),
+                None,
+            )
+        if selected_exam is not None and selected_exam.status == "ACTIVE":
+            return _RoutedReply(
+                text_key="exam_selected",
+                context_updates={
+                    "selected_exam": selected_exam.exam_id,
+                    "selected_category": selected_exam.category,
+                    "eligibility_step": None,
+                    "age_band": None,
+                    "qualification_band": None,
+                },
+            )
+
+        if raw == "eligibility:check" or "check my eligibility" in normalized:
+            if context.selected_exam is not None:
+                return _RoutedReply(
+                    text_key="eligibility_ask_age",
+                    context_updates={"eligibility_step": "age"},
+                )
+        if context.eligibility_step == "age":
+            age = next(
+                (
+                    value
+                    for value in self._age_bands
+                    if normalize_chat_text(value) == normalized
+                ),
+                None,
+            )
+            if age is not None:
+                return _RoutedReply(
+                    text_key="eligibility_ask_qualification",
+                    context_updates={
+                        "age_band": age,
+                        "eligibility_step": "qualification",
+                    },
+                )
+        if context.eligibility_step == "qualification":
+            qualification = next(
+                (
+                    value
+                    for value in self._qualification_options
+                    if normalize_chat_text(value) == normalized
+                ),
+                None,
+            )
+            if qualification is not None and context.selected_exam is not None:
+                exam = self._get_exam(context.selected_exam)
+                sources = [
+                    source
+                    for source in self._source_registry.values()
+                    if source.exam_id == context.selected_exam
+                    and source.status == "VERIFIED"
+                    and source.topic in {"eligibility", "age_limit", "attempts"}
+                    and source.answer_summary is not None
+                ]
+                updates = {
+                    "qualification_band": qualification,
+                    "eligibility_step": None,
+                }
+                if sources:
+                    summary = " ".join(
+                        source.answer_summary or "" for source in sources
+                    )
+                    reply = f"{summary} Official notice: {exam.official_notice_url}"
+                    return _RoutedReply(reply_text=reply, context_updates=updates)
+                return _RoutedReply(
+                    text_key="eligibility_pending",
+                    context_updates=updates,
+                )
+
+        if context.selected_exam is not None:
+            course_key = _course_key(raw, normalized)
+            if course_key is not None:
+                exam_courses = self._courses.get(context.selected_exam)
+                course = exam_courses.get(course_key) if exam_courses else None
+                if (
+                    not isinstance(course, CourseInfoEntry)
+                    or course.status == "TO_VERIFY"
+                ):
+                    return _RoutedReply(text_key="course_info_pending")
+                return _RoutedReply(
+                    reply_text=_format_course_text(course_key, course.text)
+                )
+        return None
+
+    def _get_exam(self, exam_id: str) -> Exam:
+        if self._exam_menu is None:
+            raise RuntimeError("exam menu is not configured")
+        exam = next(
+            (row for row in self._exam_menu.exams if row.exam_id == exam_id), None
+        )
+        if exam is None:
+            raise KeyError(f"unknown exam {exam_id}")
+        return exam
 
     async def run_once(self) -> bool:
         job_id: UUID | None = None
@@ -467,6 +731,49 @@ def _decision_profile_updates(
     )
 
 
+def _parse_open_question(
+    context: ConversationContext, text: str
+) -> LeadProfile | None:
+    field = context.last_asked_field
+    if field is None:
+        return None
+    if field.value == "stage":
+        value = parse_stage(text)
+        return LeadProfile(stage=value) if value is not None else None
+    if field.value == "target":
+        value = parse_target(text)
+        return LeadProfile(target=value) if value is not None else None
+    if field.value == "timeline":
+        value = parse_timeline(text)
+        return LeadProfile(timeline=value) if value is not None else None
+    return None
+
+
+def _course_key(raw: str, normalized: str) -> str | None:
+    if raw.startswith("course:"):
+        candidate = raw.removeprefix("course:")
+        return (
+            candidate
+            if candidate in {"batch_timings", "fees", "demo_class"}
+            else None
+        )
+    if "timing" in normalized or "batch" in normalized:
+        return "batch_timings"
+    if "fee" in normalized or "price" in normalized:
+        return "fees"
+    if "demo" in normalized or "trial" in normalized:
+        return "demo_class"
+    return None
+
+
+def _format_course_text(course_key: str, text: str) -> str:
+    if course_key == "batch_timings":
+        return text.replace(
+            ". Timings not yet published.", "; timings not provided."
+        )
+    return text
+
+
 def _merge_profile(base: LeadProfile, extracted: LeadProfile) -> LeadProfile:
     return LeadProfile(
         stage=base.stage if extracted.stage is None else extracted.stage,
@@ -506,11 +813,9 @@ async def run_worker() -> None:
     engine = create_engine(settings.database_url)
     sessions = create_session_factory(engine)
     cipher = ContactCipher.from_settings(settings)
-    knowledge = tuple(
-        entry
-        for path in ("data/institute.yaml", "data/upsc_reference.yaml")
-        for entry in load_knowledge(path).entries
-    )
+    institute = load_knowledge("data/institute.yaml")
+    upsc_reference = load_knowledge("data/upsc_reference.yaml")
+    knowledge = (*institute.entries, *upsc_reference.entries)
     source_registry = load_sources("data/approved_sources.yaml")
     topic_keywords = yaml.safe_load(
         Path("data/topic_keywords.yaml").read_text(encoding="utf-8")
@@ -530,6 +835,11 @@ async def run_worker() -> None:
         knowledge_max_age_days=settings.knowledge_max_age_days,
         answering_enabled=True,
         source_registry=source_registry,
+        exam_menu=load_exam_menu("data/exams.yaml"),
+        courses=institute.courses,
+        age_bands=tuple(settings.age_bands),
+        qualification_options=tuple(settings.qualification_options),
+        display_name=settings.institute_display_name,
     )
     try:
         while True:

@@ -58,6 +58,13 @@ class ConversationContext(_StrictModel):
     repeated_question_count: int = 0
     last_asked_field: Field | None = None
     message_count: int = 0
+    name: str | None = None
+    selected_category: str | None = None
+    selected_exam: str | None = None
+    category_page: int = 0
+    eligibility_step: str | None = None
+    age_band: str | None = None
+    qualification_band: str | None = None
 
 
 class InboundMessage(_StrictModel):
@@ -65,6 +72,7 @@ class InboundMessage(_StrictModel):
     extracted_fields: LeadProfile
     detected_flags: QualifyFlags
     is_off_topic: bool = False
+    extracted_name: str | None = None
 
 
 class SlotSelected(_StrictModel):
@@ -210,6 +218,7 @@ def _handle_inbound(
             "flags": flags,
             "injection_count": injection_count,
             "message_count": ctx.message_count + 1,
+            "name": event.extracted_name or ctx.name,
         }
     )
     status = qualify(profile, flags, offered_targets)

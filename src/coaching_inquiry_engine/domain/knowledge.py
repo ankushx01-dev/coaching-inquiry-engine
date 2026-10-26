@@ -41,6 +41,19 @@ KnowledgeTopic = Literal[
     "institute_fees",
 ]
 KnowledgeStatus = Literal["VERIFIED", "TO_VERIFY"]
+
+
+class CourseInfoEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    text: str = Field(min_length=1)
+    status: KnowledgeStatus
+    last_verified: date | None = None
+    available: bool | None = None
+    mode: Literal["online", "offline", "hybrid"] | None = None
+    schedule: str | None = None
+
+
 UPSC_TOPICS = frozenset(
     {
         "exam_structure",
@@ -78,12 +91,16 @@ class KnowledgeFile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     institute_name: str = Field(min_length=1)
+    display_name: str | None = None
     owner: str = Field(min_length=1)
     last_reviewed: date
     status: KnowledgeStatus
     timezone: str | None = None
     usage: Literal["benchmark_only"] | None = None
     entries: list[KnowledgeEntry]
+    courses: dict[str, dict[str, CourseInfoEntry | str]] = Field(
+        default_factory=dict
+    )
 
     @classmethod
     def validate_upsc_claims(cls, entries: list[KnowledgeEntry]) -> None:

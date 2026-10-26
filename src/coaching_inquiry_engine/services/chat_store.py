@@ -106,3 +106,15 @@ class PostgresChatStore:
                 )
                 for row in rows
             ]
+
+    async def conversation_context(self, session_id: str) -> dict[str, object] | None:
+        session_key = session_lookup_key(session_id)
+        async with self._sessions() as session:
+            lead = await LeadRepository(
+                session, self._cipher
+            ).get_by_channel_external_user(ContactChannel.chat, session_key)
+            if lead is None:
+                return None
+            return await LeadRepository(session, self._cipher).get_conversation_context(
+                lead.id
+            )

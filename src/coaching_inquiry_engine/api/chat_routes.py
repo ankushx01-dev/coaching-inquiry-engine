@@ -7,13 +7,14 @@ from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from coaching_inquiry_engine.domain.models import MessageDirection
 from coaching_inquiry_engine.domain.quick_replies import QuickReply
 from coaching_inquiry_engine.services.chat_service import (
     ChatMessageService,
     RateLimitExceededError,
+    UnknownQuickReplyActionError,
 )
 
 _SESSION_TOKEN = r"^[A-Za-z0-9_-]{32,128}$"
@@ -24,8 +25,20 @@ class ChatMessageRequest(BaseModel):
 
     session_id: str = Field(min_length=32, max_length=128, pattern=_SESSION_TOKEN)
     client_message_id: str = Field(min_length=1, max_length=128)
-    text: str = Field(min_length=1, max_length=1000)
+    text: str | None = Field(default=None, min_length=1, max_length=1000)
+    action_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9:_-]+$",
+    )
     consent_given: bool
+
+    @model_validator(mode="after")
+    def require_exactly_one_message_input(self) -> ChatMessageRequest:
+        if (self.text is None) == (self.action_id is None):
+            raise ValueError("provide exactly one of text or action_id")
+        return self
 
 
 class AcceptedMessageResponse(BaseModel):
@@ -64,11 +77,16 @@ async def post_chat_message(
             session_id=payload.session_id,
             client_message_id=payload.client_message_id,
             text=payload.text,
+            action_id=payload.action_id,
             consent_given=payload.consent_given,
             ip_address=ip_address,
         )
     except RateLimitExceededError as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS) from exc
+    except UnknownQuickReplyActionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT
+        ) from exc
     return AcceptedMessageResponse(
         accepted=accepted.accepted,
         message_id=accepted.message_id,
@@ -95,5 +113,5 @@ async def get_chat_replies(
             )
             for message in messages
         ],
-        quick_replies=list(service.quick_replies),
+        quick_replies=await service.quick_replies_for(session_id=session_id),
     )

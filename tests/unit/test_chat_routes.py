@@ -24,6 +24,7 @@ class _MemoryChatStore:
         self.message_ids: dict[tuple[str, str], UUID] = {}
         self.enqueued: list[tuple[str, str]] = []
         self.messages_by_session: dict[str, list[StoredChatMessage]] = {}
+        self.accepted_texts: list[str] = []
 
     async def accept_message(
         self,
@@ -33,7 +34,8 @@ class _MemoryChatStore:
         text: str,
         consent_given: bool,
     ) -> UUID:
-        _ = text, consent_given
+        _ = consent_given
+        self.accepted_texts.append(text)
         key = session_id, client_message_id
         existing = self.message_ids.get(key)
         if existing is not None:
@@ -60,7 +62,13 @@ def _app(
             per_session_per_minute=per_session,
             per_ip_per_minute=per_ip,
         ),
-        (QuickReply(label="Fees", send_text="What are the fees?"),),
+        (
+            QuickReply(
+                action_id="course:fees",
+                label="Fees",
+                send_text="What are the fees?",
+            ),
+        ),
     )
     app.include_router(router)
     return app
@@ -165,9 +173,38 @@ async def test_get_returns_both_directions_in_time_order_for_one_session_only() 
                 "received_at": "2026-10-25T12:01:00Z",
             },
         ],
-        "quick_replies": [{"label": "Fees", "send_text": "What are the fees?"}],
+        "quick_replies": [
+            {
+                "action_id": "course:fees",
+                "label": "Fees",
+                "send_text": "What are the fees?",
+            }
+        ],
     }
     assert "private to B" not in response.text
+
+
+async def test_get_displays_legacy_action_records_as_labels() -> None:
+    store = _MemoryChatStore()
+    store.messages_by_session[_SESSION_A] = [
+        StoredChatMessage(
+            uuid4(),
+            MessageDirection.inbound,
+            "course:batch_timings",
+            datetime(2026, 10, 25, 12, 0, tzinfo=UTC),
+        )
+    ]
+    app = _app(store)
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get(
+            "/v1/chat/messages", params={"session_id": _SESSION_A}
+        )
+
+    assert response.status_code == 200
+    assert response.json()["messages"][0]["text"] == "Batch timings"
+    assert "course:batch_timings" not in response.text
 
 
 async def test_rate_limit_returns_429_after_session_threshold() -> None:
@@ -210,3 +247,43 @@ async def test_polling_get_does_not_consume_the_message_send_limit() -> None:
     assert first.status_code == 202
     assert poll.status_code == 200
     assert second.status_code == 429
+
+
+async def test_action_id_resolves_to_canonical_quick_reply_text() -> None:
+    store = _MemoryChatStore()
+    app = _app(store)
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/chat/messages",
+            json={
+                "session_id": _SESSION_A,
+                "client_message_id": "quick-1",
+                "action_id": "course:fees",
+                "consent_given": True,
+            },
+        )
+
+    assert response.status_code == 202
+    assert store.accepted_texts == ["What are the fees?"]
+
+
+async def test_unknown_quick_reply_action_id_returns_422_without_enqueue() -> None:
+    store = _MemoryChatStore()
+    app = _app(store)
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/chat/messages",
+            json={
+                "session_id": _SESSION_A,
+                "client_message_id": "quick-unknown",
+                "action_id": "course:unknown",
+                "consent_given": True,
+            },
+        )
+
+    assert response.status_code == 422
+    assert store.enqueued == []

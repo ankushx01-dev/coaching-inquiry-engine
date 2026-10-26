@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Admissions chat</title>
+  <title>{{display_name}} chat</title>
   <style>
     :root { color-scheme: light; font: 16px/1.5 system-ui, sans-serif; }
     body { margin: 0; background: #f5f7fa; color: #17212f; }
@@ -24,11 +24,11 @@
 </head>
 <body>
   <main>
-    <h1>Admissions chat</h1>
+    <h1>{{display_name}}</h1>
     <section id="consent-panel" aria-labelledby="consent-title">
       <h2 id="consent-title">Before you begin</h2>
       <!-- TO_APPROVE -->
-      <p>This is a private AI admissions assistant for [INSTITUTE_NAME]. It is not an official UPSC or government service. Messages are stored.</p>
+      <p>This is a private AI admissions assistant for {{display_name}}. It is not an official UPSC or government service. Messages are stored.</p>
       <label><input id="consent-check" type="checkbox"> I understand and agree to continue.</label>
       <button id="begin-button" type="button" disabled>Continue</button>
     </section>
@@ -83,6 +83,12 @@
       input.focus();
       startPolling();
     });
+
+    if (sessionStorage.getItem("cie-chat-consent") === "true") {
+      consentPanel.hidden = true;
+      chatPanel.hidden = false;
+      startPolling();
+    }
 
     function renderMessages(messages) {
       const orderedMessages = [...messages].sort((left, right) => {
@@ -145,8 +151,7 @@
         button.type = "button";
         button.textContent = quickReply.label;
         button.addEventListener("click", () => {
-          input.value = quickReply.send_text;
-          void sendMessage(quickReply.send_text);
+          void sendAction(quickReply.action_id);
         });
         quickReplyContainer.append(button);
       }
@@ -181,6 +186,14 @@
     async function sendMessage(messageText) {
       const text = messageText.trim();
       if (!text) return;
+      await submitMessage({ text });
+    }
+
+    async function sendAction(actionId) {
+      await submitMessage({ action_id: actionId });
+    }
+
+    async function submitMessage(content) {
       status.textContent = "Sending…";
       try {
         const response = await fetch("/v1/chat/messages", {
@@ -189,7 +202,7 @@
           body: JSON.stringify({
             session_id: sessionId,
             client_message_id: crypto.randomUUID(),
-            text,
+            ...content,
             consent_given: true
           })
         });
@@ -211,7 +224,9 @@
         }
         const accepted = await response.json();
         showTyping(accepted.message_id);
-        if (input.value.trim() === text) input.value = "";
+        if (content.text && input.value.trim() === content.text.trim()) {
+          input.value = "";
+        }
         status.textContent = "";
       } catch (_error) {
         status.textContent = "Something went wrong. Please try again.";
@@ -223,7 +238,6 @@
       void sendMessage(input.value);
     });
 
-    startPolling();
   </script>
 </body>
 </html>

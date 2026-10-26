@@ -18,6 +18,7 @@ from coaching_inquiry_engine.db.encryption import (
     require_crypto_settings,
 )
 from coaching_inquiry_engine.db.session import create_engine, create_session_factory
+from coaching_inquiry_engine.domain.exam_menu import load_exam_menu
 from coaching_inquiry_engine.domain.quick_replies import load_quick_replies
 from coaching_inquiry_engine.logging import configure_logging
 from coaching_inquiry_engine.services.chat_service import ChatMessageService
@@ -52,6 +53,9 @@ def create_app() -> FastAPI:
             per_ip_per_minute=settings.rate_limit_per_ip_per_min,
         ),
         tuple(load_quick_replies("data/quick_replies.yaml")),
+        exam_menu=load_exam_menu("data/exams.yaml"),
+        age_bands=tuple(settings.age_bands),
+        qualification_options=tuple(settings.qualification_options),
     )
     application.add_middleware(
         CORSMiddleware,
