@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from coaching_inquiry_engine.domain.quick_replies import QuickReply
+
 
 class MessengerPort(Protocol):
-    async def send_text(self, recipient: str, text: str) -> None: ...
+    async def send_text(
+        self,
+        recipient: str,
+        text: str,
+        quick_replies: tuple[QuickReply, ...] = (),
+    ) -> None: ...

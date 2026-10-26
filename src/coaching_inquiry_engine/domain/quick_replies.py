@@ -14,6 +14,7 @@ class QuickReply(BaseModel):
     action_id: str = Field(min_length=1, max_length=128)
     label: str = Field(min_length=1, max_length=60)
     send_text: str = Field(min_length=1, max_length=1000)
+    request_contact: bool = False
 
 
 class QuickReplyFile(BaseModel):

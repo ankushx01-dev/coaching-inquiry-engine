@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -48,6 +49,12 @@ class LeadRow(Base):
     target: Mapped[str | None] = mapped_column(String(64), nullable=True)
     timeline: Mapped[str | None] = mapped_column(String(64), nullable=True)
     name: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    goal: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    age_years: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    qualification: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    exam_category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    exam_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    eligibility_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     contact_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     contact_hash: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
     conversation_context: Mapped[dict[str, object] | None] = mapped_column(
@@ -71,6 +78,9 @@ class LeadRow(Base):
     bookings: Mapped[list[BookingRow]] = relationship(back_populates="lead")
     outbox_rows: Mapped[list[OutboxRow]] = relationship(back_populates="lead")
     audit_events: Mapped[list[AuditEventRow]] = relationship(back_populates="lead")
+    counselling_requests: Mapped[list[CounsellingRequestRow]] = relationship(
+        back_populates="lead", cascade="all, delete-orphan"
+    )
 
 
 class MessageRow(Base):
@@ -305,3 +315,49 @@ class AuditEventRow(Base):
     )
 
     lead: Mapped[LeadRow | None] = relationship(back_populates="audit_events")
+
+
+class CounsellingRequestRow(Base):
+    __tablename__ = "counselling_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('new', 'contacted', 'booked', 'closed')",
+            name="status_allowed",
+        ),
+        Index(
+            "uq_counselling_requests_one_open_per_lead",
+            "lead_id",
+            unique=True,
+            postgresql_where=text("status <> 'closed'"),
+            sqlite_where=text("status <> 'closed'"),
+        ),
+        Index("ix_counselling_requests_created_at", "created_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    lead_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("leads.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="new", server_default=text("'new'")
+    )
+    assigned_to: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    lead: Mapped[LeadRow] = relationship(back_populates="counselling_requests")

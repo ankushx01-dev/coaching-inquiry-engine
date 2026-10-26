@@ -14,6 +14,7 @@ from coaching_inquiry_engine.agent.config import (
     OFF_TOPIC_LIMIT,
     REPEATED_QUESTION_LIMIT,
 )
+from coaching_inquiry_engine.domain.flow import FlowContext
 from coaching_inquiry_engine.domain.models import (
     LeadProfile,
     LeadStatus,
@@ -65,6 +66,7 @@ class ConversationContext(_StrictModel):
     eligibility_step: str | None = None
     age_band: str | None = None
     qualification_band: str | None = None
+    flow: FlowContext = FlowContext()
 
 
 class InboundMessage(_StrictModel):
@@ -148,9 +150,7 @@ _TERMINAL_STATES = frozenset(
         ConversationState.CLOSED,
     }
 )
-_ESCALATION_STATUSES = frozenset(
-    {LeadStatus.escalated, LeadStatus.minor_linked}
-)
+_ESCALATION_STATUSES = frozenset({LeadStatus.escalated, LeadStatus.minor_linked})
 
 
 def next_missing_field(profile: LeadProfile) -> Field | None:

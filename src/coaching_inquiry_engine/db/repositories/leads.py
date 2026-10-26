@@ -65,9 +65,7 @@ class LeadRepository:
         )
         return lead_from_row(row) if row is not None else None
 
-    async def get_conversation_context(
-        self, lead_id: UUID
-    ) -> dict[str, object] | None:
+    async def get_conversation_context(self, lead_id: UUID) -> dict[str, object] | None:
         row = await self._session.get(LeadRow, lead_id)
         if row is None:
             raise KeyError(f"lead {lead_id} not found")
@@ -98,6 +96,27 @@ class LeadRepository:
             contact_data = profile_data.get("contact")
             if isinstance(contact_data, dict):
                 contact_data["value"] = "[ENCRYPTED]"
+
+        flow_data = stored_context.get("flow")
+        if isinstance(flow_data, dict):
+            flow_name = flow_data.get("name")
+            row.name = flow_name if isinstance(flow_name, str) else row.name
+            goal = flow_data.get("goal")
+            row.goal = goal if isinstance(goal, str) else None
+            age = flow_data.get("age_years")
+            row.age_years = age if isinstance(age, int) else None
+            qualification = flow_data.get("qualification")
+            row.qualification = (
+                qualification if isinstance(qualification, str) else None
+            )
+            category = flow_data.get("exam_category")
+            row.exam_category = category if isinstance(category, str) else None
+            exam_id = flow_data.get("exam_id")
+            row.exam_id = exam_id if isinstance(exam_id, str) else None
+            eligibility = flow_data.get("eligibility_status")
+            row.eligibility_status = (
+                eligibility if isinstance(eligibility, str) else None
+            )
 
         if profile.contact is not None:
             row.name = profile.contact.name

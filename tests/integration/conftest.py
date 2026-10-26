@@ -21,6 +21,7 @@ from coaching_inquiry_engine.db.models import (  # noqa: F401
     AuditEventRow,
     BookingRow,
     ConsentRow,
+    CounsellingRequestRow,
     JobRow,
     LeadRow,
     MessageRow,
@@ -30,7 +31,8 @@ from coaching_inquiry_engine.db.models import (  # noqa: F401
 
 _TRUNCATE = """
 TRUNCATE TABLE
-    audit_events, jobs, outbox, bookings, slot_offers, consents, messages, leads
+    audit_events, jobs, outbox, counselling_requests, bookings, slot_offers,
+    consents, messages, leads
 CASCADE
 """
 

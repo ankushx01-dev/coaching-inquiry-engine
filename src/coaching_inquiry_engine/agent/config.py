@@ -44,8 +44,7 @@ CONVERSATION_TEXTS: Mapping[str, str] = MappingProxyType(
         ),
         "human_handoff": "Connecting you with a human counsellor right away.",
         "injection_decline": (
-            "I can only assist with coaching and course inquiries for "
-            "the institute."
+            "I can only assist with coaching and course inquiries for the institute."
         ),
         "consent_stopped": "You have unsubscribed. We will send no further messages.",
         "greeting_welcome": (
@@ -85,10 +84,75 @@ CONVERSATION_TEXTS: Mapping[str, str] = MappingProxyType(
         "category_menu_intro": "Choose an exam category to see available exams.",
         "exam_menu_intro": "Choose an exam from this category.",
         "exam_selected": "Thanks. Choose an option below for this exam.",
+        "telegram_consent_notice": (
+            "This is a private AI admissions assistant for {display_name}. "
+            "It is not an official UPSC or government service. Messages are "
+            "stored. Press I agree to continue."
+        ),
         "ask_name": "What name should I use when we speak with you?",
+        "goal_prompt": "What is your main study goal?",
+        "name_prompt": "What is your name?",
+        "name_retry": (
+            "Please enter a name using 2 to 60 letters and spaces, dots, "
+            "apostrophes, or hyphens."
+        ),
+        "age_prompt": "How old are you? Please enter your age in years.",
+        "age_retry": "Please enter an age from 14 to 70 as a number of years.",
+        "qualification_prompt": "Choose your highest qualification.",
+        "eligibility_prompt": (
+            "Choose whether to check eligibility or view course options."
+        ),
+        "course_options_prompt": "Choose a course option below.",
+        "contact_ask": (
+            "How should a counsellor reach you? Share your phone, type an "
+            "Indian mobile number, or choose Contact me here."
+        ),
+        "contact_phone_prompt": "Type your 10-digit Indian mobile number.",
+        "contact_retry": (
+            "That mobile number is not valid. Enter a 10-digit Indian mobile "
+            "number or choose another contact option."
+        ),
+        "counselling_review_prompt": (
+            "Please review your counselling request for {exam}. Confirm to send it. "
+            "Your contact details are not shown here."
+        ),
+        "counselling_cancelled": (
+            "Your request was cancelled. Your saved details remain available."
+        ),
+        "counsellor_request_received": (
+            "Thanks, {first_name}. Your counselling request has been received."
+        ),
+        "counselling_request_blocked": (
+            "I cannot submit this request in the current flow. Please return to "
+            "the available course options."
+        ),
+        "booking_prompt": "Choose an available counselling time below.",
+        "eligibility_result_eligible": (
+            "Based on the verified rule, you meet the stated eligibility criteria."
+        ),
+        "eligibility_result_not_eligible": (
+            "Based on the verified rule, you do not meet the stated "
+            "eligibility criteria."
+        ),
+        "eligibility_to_confirm": (
+            "The team will confirm eligibility. Please check the official notice: "
+            "{official_url}"
+        ),
+        "llm_unavailable_follow_up": (
+            "I cannot answer that right now. The team will follow up with you."
+        ),
     }
 )
 
 TEXT_REVIEW_STATUS: Mapping[str, str] = MappingProxyType(
-    {key: "TO_APPROVE" for key in CONVERSATION_TEXTS}
+    {
+        **{key: "TO_APPROVE" for key in CONVERSATION_TEXTS},
+        "contact_ask": "REVIEWED_STEP_09J",
+        "contact_phone_prompt": "REVIEWED_STEP_09J",
+        "contact_retry": "REVIEWED_STEP_09J",
+        "counselling_review_prompt": "REVIEWED_STEP_09J",
+        "counselling_cancelled": "REVIEWED_STEP_09J",
+        "counsellor_request_received": "REVIEWED_STEP_09J",
+        "counselling_request_blocked": "REVIEWED_STEP_09J",
+    }
 )

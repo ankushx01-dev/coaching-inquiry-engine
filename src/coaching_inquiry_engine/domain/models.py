@@ -39,6 +39,7 @@ class Timeline(StrEnum):
 
 class ContactChannel(StrEnum):
     chat = "chat"
+    telegram = "telegram"
     whatsapp = "whatsapp"
     call = "call"
     email = "email"
@@ -143,6 +144,12 @@ class Lead(_StrictModel):
     target: Target | None = None
     timeline: Timeline | None = None
     name: str | None = None
+    goal: str | None = None
+    age_years: int | None = None
+    qualification: str | None = None
+    exam_category: str | None = None
+    exam_id: str | None = None
+    eligibility_status: str | None = None
     created_at: datetime
     updated_at: datetime
 

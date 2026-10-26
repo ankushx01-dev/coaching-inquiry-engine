@@ -16,6 +16,7 @@ from coaching_inquiry_engine.db.models import (  # noqa: F401
     AuditEventRow,
     BookingRow,
     ConsentRow,
+    CounsellingRequestRow,
     JobRow,
     LeadRow,
     MessageRow,

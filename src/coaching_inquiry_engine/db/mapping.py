@@ -23,6 +23,12 @@ def lead_from_row(row: LeadRow) -> Lead:
         target=Target(row.target) if row.target is not None else None,
         timeline=Timeline(row.timeline) if row.timeline is not None else None,
         name=row.name,
+        goal=row.goal,
+        age_years=row.age_years,
+        qualification=row.qualification,
+        exam_category=row.exam_category,
+        exam_id=row.exam_id,
+        eligibility_status=row.eligibility_status,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )

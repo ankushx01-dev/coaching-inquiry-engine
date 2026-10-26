@@ -187,7 +187,11 @@ async def test_llm_unavailable_sends_fallback_and_preserves_inbound(
         direction="inbound",
         body="Could you help me?",
     )
-    lead = SimpleNamespace(id=_LEAD_ID, external_user_id="hashed-session-id")
+    lead = SimpleNamespace(
+        id=_LEAD_ID,
+        external_user_id="hashed-session-id",
+        channel=ContactChannel.chat,
+    )
     persisted_outbound: list[tuple[object, ...]] = []
     saved_contexts: list[dict[str, object]] = []
 

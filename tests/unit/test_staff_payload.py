@@ -51,3 +51,27 @@ def test_staff_payload_masks_contacts_and_keeps_only_last_five_messages() -> Non
     assert raw_phone not in serialized
     assert email_contact not in serialized
     assert ContactChannel.whatsapp.value not in serialized
+
+
+def test_counselling_alert_serializes_only_approved_masked_fields() -> None:
+    phone = "+919876543210"
+    email = "asha.sharma@example.com"
+    payload = build_staff_payload(
+        lead_id=UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+        status=LeadStatus.nurture,
+        reason="counselling_request",
+        messages=[f"{phone} {email}"],
+        flags=QualifyFlags(),
+        counselling_request=True,
+        first_name="Asha",
+        exam="UPSC Civil Services Examination",
+        eligibility_status="eligible",
+    )
+    data = payload.model_dump(mode="json", exclude_none=True)
+    serialized = payload.model_dump_json(exclude_none=True)
+
+    assert set(data) == {"lead_id", "first_name", "exam", "eligibility_status"}
+    assert data["first_name"] == "Asha"
+    assert "Asha Sharma" not in serialized
+    assert phone not in serialized and email not in serialized
+    assert re.search(r"(?<!\d)\d{10,}(?!\d)", serialized) is None

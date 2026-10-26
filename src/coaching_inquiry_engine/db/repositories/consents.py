@@ -60,3 +60,12 @@ class ConsentRepository:
         if row is None:
             return False
         return row.revoked_at is None
+
+    async def list_for_lead(self, lead_id: UUID) -> list[ConsentRow]:
+        return list(
+            await self._session.scalars(
+                select(ConsentRow)
+                .where(ConsentRow.lead_id == lead_id)
+                .order_by(ConsentRow.granted_at.desc(), ConsentRow.id.desc())
+            )
+        )
